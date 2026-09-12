@@ -17,7 +17,7 @@ step 8. Steps 9–10 are where the value shows.**
 | 7 | **Calibration wizard** — the core | A run creates exactly one `calibration_sessions` row, and the chart moves during recording. | [`specs/screens.md`](./specs/screens.md#5-calibration-wizard--calibrationid) |
 | 8 | **Seed script** | `events` and `appliance_signatures` hold plausible mock rows; the app is demoable end to end. | [`specs/mock-data.md`](./specs/mock-data.md#seed-data) |
 | 9 | **Breakdown + cost** | `/breakdown` shows kWh, percentage, cost and confidence per appliance, plus an Unknown row. | [`specs/screens.md`](./specs/screens.md#6-breakdown--breakdown) |
-| 10 | **Confirmation UI** | Answering a question on `/confirm` writes an `event_confirmations` row. | [`specs/screens.md`](./specs/screens.md#7-confirmation--confirm) |
+| 10 | **Confirmation UI** ✅ | Answering a question on `/confirm` writes an `event_confirmations` row. | [`specs/screens.md`](./specs/screens.md#7-confirmation--confirm) |
 
 ## Two things that run alongside, not in sequence
 

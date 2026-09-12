@@ -202,6 +202,14 @@ Each answer writes a row to `event_confirmations`. This is labelled data the dat
 side can later use — which is why it exists even though nothing consumes it yet
 in this MVP.
 
+Built as a queue: one question per screen, a "3 runs to check" counter, and an
+"All caught up" empty state. **What gets asked about:** runs matched to an
+appliance with confidence below 0.5 and no answer yet. Unmatched runs are not
+asked about — there is no guess to confirm — which is the obvious extension if
+more labelled data is wanted later. One answer per event; answering again is
+refused (409), not overwritten. The dashboard shows a prompt while any run is
+waiting.
+
 ---
 
 ## 8. Dev panel — `/dev`

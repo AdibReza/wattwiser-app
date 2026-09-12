@@ -51,7 +51,8 @@ PATCH  /api/dev/switches/:id              body: { isOn }
 ### Events and breakdown
 
 ```
-GET    /api/events?from=&to=
+GET    /api/events?from=&to=              detected runs in a window
+GET    /api/events?needsConfirmation=1    the confirmation queue
 POST   /api/events/:id/confirm            body: { answer, applianceId? }
 GET    /api/breakdown?month=2026-09       → per-appliance aggregation + cost
 ```
@@ -155,6 +156,39 @@ oldest first; defaults to the last 60 seconds, at most 24 hours per call.
 the energy between the two instants by integrating the readings. The browser
 passes its own local midnight as `from` for "Today's energy" — the wire stays
 UTC, the meaning of "today" is a display decision.
+
+### `GET /api/events?needsConfirmation=1`
+
+The `/confirm` queue: runs that **were matched to an appliance** but with
+`confidence < 0.5`, and that nobody has answered yet. Newest first, 25 max.
+Unmatched runs (`appliance_id is null`) are deliberately **not** asked about —
+there is no guess to confirm.
+
+```json
+[
+  { "id": "…", "applianceId": "…", "applianceName": "Air conditioner",
+    "startedAt": "2026-09-11T04:29:14.892Z", "endedAt": "2026-09-11T05:19:08.976Z",
+    "watts": 1090, "energyKwh": 0.946, "durationS": 2994 }
+]
+```
+
+`watts` is `delta_on_w` (the step this appliance added), falling back to
+`peak_watts`.
+
+### `POST /api/events/:id/confirm`
+
+Body `{ answer, applianceId? }` where `answer` is `yes | no | other | unknown`.
+Writes exactly one `event_confirmations` row and returns `201`.
+
+| `answer` | means | `confirmed_appliance_id` |
+|---|---|---|
+| `yes` | the guess was right | the guessed appliance (filled in server-side) |
+| `no` | the guess was wrong | null |
+| `other` | it was a different appliance | the one supplied — **required**, else 400 |
+| `unknown` | the person does not know | null |
+
+`404` if the event does not exist. **`409` if that event already has an answer**
+— one answer per event, never silently overwritten.
 
 ### `GET /api/breakdown`
 

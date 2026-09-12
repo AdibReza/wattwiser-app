@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db/client";
 import { toIso } from "@/lib/db/util";
 
@@ -49,15 +49,3 @@ export async function monthsWithEvents(): Promise<string[]> {
   `);
   return rows.map((r) => r.month);
 }
-
-/** Count of detected runs with no confirmation answer yet — the /confirm queue. */
-export async function unconfirmedCount(): Promise<number> {
-  const [row] = await getDb().execute<{ n: number }>(sql`
-    select count(*)::int as n from ${events} e
-    where e.confidence is not null and e.confidence < 0.5
-      and not exists (select 1 from event_confirmations c where c.event_id = e.id)
-  `);
-  return Number(row?.n ?? 0);
-}
-
-export { isNull };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Settings } from "lucide-react";
+import { ClipboardCheck, Plus, Settings } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { DashboardLive } from "@/components/wattwiser/dashboard-live";
 import { StartCalibrationDialog } from "@/components/wattwiser/start-calibration-dialog";
@@ -7,6 +7,7 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { getHousehold } from "@/lib/db/queries/household";
 import { listAppliances } from "@/lib/db/queries/appliances";
+import { pendingCount } from "@/lib/db/queries/events";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * (mock generator for now) through one shared poll in DashboardLive.
  */
 export default async function DashboardPage() {
-  const [household, appliances] = await Promise.all([getHousehold(), listAppliances()]);
+  const [household, appliances, pending] = await Promise.all([getHousehold(), listAppliances(), pendingCount()]);
   const counts = { total: appliances.length, calibrated: appliances.filter((a) => a.isCalibrated).length };
 
   return (
@@ -46,6 +47,23 @@ export default async function DashboardPage() {
           <AlertAction>
             <Button asChild size="sm" variant="outline">
               <Link href="/setup">Complete setup</Link>
+            </Button>
+          </AlertAction>
+        </Alert>
+      ) : null}
+
+      {pending > 0 ? (
+        <Alert className="mb-6">
+          <ClipboardCheck />
+          <AlertTitle>
+            {pending} {pending === 1 ? "run needs" : "runs need"} checking
+          </AlertTitle>
+          <AlertDescription>
+            WattWiser isn&apos;t sure which appliance it saw. Answering makes future guesses better.
+          </AlertDescription>
+          <AlertAction>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/confirm">Check {pending === 1 ? "it" : "them"}</Link>
             </Button>
           </AlertAction>
         </Alert>
