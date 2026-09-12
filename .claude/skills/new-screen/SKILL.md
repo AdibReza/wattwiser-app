@@ -13,6 +13,8 @@ description: Build or change a page in the WattWiser web app. Use for any work o
    does not exist yet, build it first.
 3. **Check which tables it touches** in `docs/specs/data-contract.md` — in
    particular whether the web side is allowed to write them.
+4. **Read `docs/design-system.md`** — tokens, layout shell, the component list
+   and the status vocabulary. And `docs/architecture.md` §2 for where the files go.
 
 If the spec is ambiguous, ask. Do not guess and do not silently extend scope.
 
@@ -23,6 +25,18 @@ If the spec is ambiguous, ask. Do not guess and do not silently extend scope.
 - **One clear primary action per screen.**
 - Readable numbers: large where the number is the point (current power), aligned
   and consistently formatted everywhere else.
+
+**Build with the system, not around it**
+- The page lives in `app/(app)/<route>/page.tsx` so it gets the sidebar shell.
+- Start with `PageHeader`; put the one primary `Button` in its `action` slot.
+- Headline numbers use `StatCard`; every status word uses `StatusBadge`; a screen with nothing
+  to show yet uses `EmptyState`; loading uses `Skeleton`; errors use `Alert`.
+- Forms: shadcn `Field` + `Input` / `Select` / `RadioGroup` / `Switch`, one
+  column, submit bottom-right, `toast.success` on save.
+- Numbers and dates only through `lib/format.ts`. Colours only through token
+  classes (`text-power`, `bg-warning-soft`). Never `bg-blue-600`, never a hex.
+- Need a shadcn component that is not installed? `npx shadcn@latest add <name>`.
+  Never paste one in by hand, never edit `components/ui/`.
 
 **Data**
 - **All timestamps UTC**, converted to local time only at the display layer.
@@ -56,5 +70,5 @@ move the numbers during a live demo.
 
 ## When you are done
 
-Run the `ship-a-change` skill. A screen is not finished until it is green on
+Run the `design-review` skill, then the `ship-a-change` skill. A screen is not finished until it is green on
 Vercel and has been looked at on the live URL.

@@ -30,6 +30,9 @@ Details: `docs/product-brief.md`. Table-by-table write ownership:
 ## Locked decisions — do not re-litigate
 
 - **Next.js only** on the web side. No FastAPI, no Python on the web side.
+- **Tailwind CSS v4 + shadcn/ui** for all styling and components. Tokens live in
+  `app/globals.css`; the rules are in `docs/design-system.md`. No other UI
+  library, no CSS-in-JS, no hand-edited files in `components/ui/`.
 - **Supabase** (PostgreSQL) for the database.
 - **No authentication** in this MVP. Single household, one shared dataset.
   No login or register screens.
@@ -79,6 +82,9 @@ Someone who has **never written code** and works by prompting Claude Code. So:
   pipeline silently, with no error message.
 - Never propose: Docker, CI/CD, microservices, Kubernetes, self-hosting,
   hand-rolled complex auth, or ML.
+- Code layout and naming follow `docs/architecture.md`. Every status word goes
+  through `StatusBadge`, every number through `lib/format.ts`, every screen
+  starts with `PageHeader` and has exactly one primary action.
 - If there is a simpler way, say so directly.
 - Tone: direct, no padding, no flattery. Keep it short.
 
@@ -106,3 +112,4 @@ superseded: [`docs/source/README.md`](./docs/source/README.md#superseded-by-the-
 | `ship-a-change` | Any change is ready to go live — runs the build/test/deploy/verify loop |
 | `new-screen` | Building or changing any page under the screen map |
 | `db-change` | Adding or altering a table, column, or seed |
+| `design-review` | Before shipping any screen — checks it against the design system |

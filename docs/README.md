@@ -11,6 +11,8 @@ and working rules. This page tells you which document answers which question.
 | Know whether something is in scope, or why a technology was ruled out | [`scope-and-decisions.md`](./scope-and-decisions.md) |
 | Know what to build next, and what "done" means for it | [`build-order.md`](./build-order.md) |
 | Build or change a page | [`specs/screens.md`](./specs/screens.md) |
+| Make a screen look right — tokens, layout, components, status words | [`design-system.md`](./design-system.md) |
+| Know where a file goes and which conventions it follows | [`architecture.md`](./architecture.md) |
 | Add or alter a table, column, or index | [`specs/data-contract.md`](./specs/data-contract.md) |
 | Add or change an API route | [`specs/api-routes.md`](./specs/api-routes.md) |
 | Generate live-looking power data, or seed the database | [`specs/mock-data.md`](./specs/mock-data.md) |
@@ -27,6 +29,8 @@ docs/
   product-brief.md               what it is, the two sides, the boundary
   scope-and-decisions.md         locked decisions, cut list, future roadmap
   build-order.md                 ordered milestones with definitions of done
+  design-system.md               tokens, layout shell, components, status vocabulary
+  architecture.md                code layers, folder map, naming and data conventions
   specs/
     screens.md                   screen map and per-screen specification
     data-contract.md             database schema and write ownership
@@ -45,6 +49,7 @@ docs/
   ship-a-change/                 build → test → deploy → verify loop
   new-screen/                    build a page to the screen spec
   db-change/                     change the schema without breaking the contract
+  design-review/                 check a screen against the design system before shipping
 ```
 
 ## Source of truth

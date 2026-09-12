@@ -1,0 +1,157 @@
+# Web architecture and conventions
+
+How the web side's code is organised and the rules every file follows. The
+product-level picture (two sides, one database) is in
+[`product-brief.md`](./product-brief.md); this document is the code-level one.
+
+---
+
+## 1. Layers
+
+```
+browser
+  │
+  ▼
+app/(app)/<route>/page.tsx      screens — server components by default
+  │  render                          │  fetch/mutate via
+  ▼                                  ▼
+components/                     app/api/<route>/route.ts   route handlers
+  ui/         shadcn (installed)        │  snake_case ⇄ camelCase, UTC ISO
+  layout/     shell, header             ▼
+  wattwiser/  product composites   lib/db/                  Drizzle + Supabase
+                                        │
+                                   lib/readings/            live power source
+                                     source.ts   ← interface
+                                     mock.ts     ← generator (MVP)
+                                     shelly.ts   ← real data (later, same interface)
+```
+
+**Rules of the layers**
+
+- Screens never import from `lib/db`. They call route handlers (or a server
+  action that lives next to the route handler and shares its code).
+- Route handlers are the only place SQL column names become JSON field names.
+- The live power number always comes through `lib/readings/source.ts`.
+  Swapping mock for Shelly changes one file and no screen.
+
+---
+
+## 2. Folder map
+
+```
+app/
+  layout.tsx            root: font, tooltip provider, toaster
+  page.tsx              redirects to /dashboard
+  not-found.tsx         styled 404
+  globals.css           design tokens (docs/design-system.md)
+  (app)/                route group — every customer screen, wrapped in AppShell
+    layout.tsx
+    dashboard/page.tsx
+    appliances/page.tsx, new/page.tsx, [id]/page.tsx
+    calibration/[id]/page.tsx
+    breakdown/page.tsx
+    confirm/page.tsx
+    setup/page.tsx
+    dev/page.tsx
+  api/                  route handlers, paths from docs/specs/api-routes.md
+    household/route.ts
+    appliances/route.ts, [id]/route.ts, [id]/calibrations/route.ts
+    calibration/start/route.ts, [id]/route.ts, [id]/finish/route.ts, [id]/discard/route.ts
+    readings/current/route.ts, route.ts
+    events/route.ts, [id]/confirm/route.ts
+    breakdown/route.ts
+components/
+  ui/                   shadcn/ui — installed by CLI, never hand-edited
+  layout/               AppShell, SidebarNav, PageHeader
+  wattwiser/            StatCard, StatusBadge, EmptyState, (later) PowerChart, WizardStep…
+lib/
+  utils.ts              cn()
+  format.ts             every number/date → text conversion
+  nav.ts                the sidebar's item list
+  db/                   schema.ts (Drizzle), client.ts, queries/   ← build step 2
+  readings/             source.ts, mock.ts                          ← build step 5
+  mock/                 seed script                                 ← build step 8
+docs/                   specs and guides (see docs/README.md)
+.claude/skills/         agent workflows
+```
+
+A folder that does not exist yet is created at the build step noted. Do not
+create it earlier.
+
+---
+
+## 3. Conventions
+
+### Naming
+
+| Thing | Style | Example |
+|---|---|---|
+| files and folders | kebab-case | `status-badge.tsx`, `readings/current/route.ts` |
+| React components | PascalCase, one per file, named export | `export function StatCard` |
+| functions, variables | camelCase | `formatWatts` |
+| database columns | snake_case | `appliance_class` |
+| JSON on the wire | camelCase | `applianceClass` |
+| route segments | match the screen map exactly | `/appliances/[id]` |
+| environment variables | SCREAMING_SNAKE, read only in `lib/db/client.ts` | `DATABASE_URL` |
+
+### Components
+
+- Server components by default. Add `"use client"` only for state, effects,
+  event handlers, or browser APIs (the sidebar needs the current URL, the
+  wizard needs timers).
+- Props are a single typed object; no `any`.
+- Shared UI goes in `components/wattwiser/` **after** it is used by two
+  screens. Before that it stays inside the screen file.
+- Import order: react/next, third-party, `@/components`, `@/lib`, relative.
+
+### Data and time
+
+- **Every timestamp is UTC** in the database, on the wire and in state. Only
+  `lib/format.ts` converts to local time, and only for display.
+- Route handlers validate the body with `zod`, return typed JSON, and use
+  proper status codes: 200, 201 on create, 400 on bad input, 404, 500. Error
+  body is `{ "error": "plain sentence" }`.
+- Confidence is stored `0.0–1.0` and shown High / Medium / Low.
+- The Unknown bucket (`events.appliance_id = null`) is always in breakdown output.
+- Never send raw readings to a language model.
+
+### Styling
+
+- Tailwind classes only. No CSS modules, no styled-components, no inline
+  `style={{}}` except for values that are truly dynamic (a bar width).
+- Colours through token classes only (`bg-primary`, `text-warning`). Raw
+  Tailwind colours (`bg-blue-600`) are forbidden outside `globals.css`.
+- shadcn components are installed with `npx shadcn@latest add`, never pasted
+  from the web and never modified. Wrap them in `components/wattwiser/` if a
+  product-specific variant is needed.
+
+### Quality gates (in this order, every change)
+
+1. `npm run build` is green — Vercel runs the same build.
+2. `npx eslint .` reports nothing.
+3. The screen is checked on localhost against `docs/design-system.md` §5–7.
+4. Commit as `<emoji> <type>: <message>`, push, confirm Vercel green, open the live URL.
+
+---
+
+## 4. Environment
+
+| Variable | Where set | Used by |
+|---|---|---|
+| `DATABASE_URL` | `.env.local` locally; Vercel → Project → Settings → Environment Variables | `lib/db/client.ts` |
+
+`.env*` is git-ignored. A screen that works locally and is empty on Vercel is
+almost always a missing environment variable, not a bug.
+
+---
+
+## 5. What an agent reads before each kind of task
+
+| Task | Read first |
+|---|---|
+| any screen | `docs/specs/screens.md` → `docs/design-system.md` → skill `new-screen` |
+| any API route | `docs/specs/api-routes.md` → this file §3 |
+| any table/column/seed | `docs/specs/data-contract.md` → skill `db-change` |
+| mock generator / seed | `docs/specs/mock-data.md` |
+| shipping | skill `ship-a-change` |
+| "is this in scope?" | `docs/scope-and-decisions.md` |
