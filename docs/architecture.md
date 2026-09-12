@@ -68,11 +68,13 @@ lib/
   utils.ts              cn()
   format.ts             every number/date → text conversion
   nav.ts                the sidebar's item list
-  db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb())
+  db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb()), target.ts (local-only guard)
   readings/             source.ts, mock.ts                          ← build step 5
   mock/                 seed script                                 ← build step 8
 drizzle/                generated SQL migrations (pnpm db:generate / db:migrate)
-drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local
+drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local, local-only guard
+supabase/config.toml    local Supabase (Docker) — ports 553xx, db + studio only
+justfile                everyday commands: just up / migrate / run / check
 .env.example            template for .env.local (the real file is git-ignored)
 docs/                   specs and guides (see docs/README.md)
 .claude/skills/         agent workflows
@@ -139,22 +141,51 @@ create it earlier.
 
 ## 4. Environment
 
-| Variable | Where set | Used by |
+**Two databases, one rule: local code only ever talks to the local database.**
+
+| Where | Database | `DATABASE_URL` set in |
 |---|---|---|
-| `DATABASE_URL` | `.env.local` locally; Vercel → Project → Settings → Environment Variables | `lib/db/client.ts` (`getDb()`), `drizzle.config.ts` |
+| your Mac (`just run`, `just migrate`) | local Supabase in Docker, port 55322 | `.env.local` |
+| Vercel (build and runtime) | hosted Supabase, Transaction pooler, port 6543 | Vercel → Settings → Environment Variables |
 
-Use Supabase's **Transaction pooler** string (port 6543). The pooler does not
-support prepared statements, so the client is created with `prepare: false`.
-`GET /api/health` lists the tables the connected database actually has — the
-first thing to check when a screen is empty in production.
+The hosted connection string is **never** written to a file on this machine.
+`lib/db/target.ts` enforces it: any attempt to open a non-local connection
+throws unless `VERCEL=1` (set automatically on Vercel) or an explicit
+`ALLOW_CLOUD_DB=true` one-off override. Both the app client and drizzle-kit go
+through that guard.
 
-Schema change workflow: edit `lib/db/schema.ts` → `pnpm db:generate` →
-`pnpm db:migrate` → update `docs/specs/data-contract.md` (skill `db-change`).
+### Local Supabase
 
-`.env*` is git-ignored. A screen that works locally and is empty on Vercel is
-almost always a missing environment variable, not a bug.
+Runs in Docker via the Supabase CLI. Config: `supabase/config.toml`. Ports are
+in the 553xx range so it never collides with other local projects (default 543xx).
+Only the database, Studio and API are enabled; auth, storage, realtime,
+analytics and mail are off.
 
----
+| Command | Does |
+|---|---|
+| `just up` | start Postgres + Studio (Docker Desktop must be running) |
+| `just migrate` | apply `drizzle/*.sql` to the local database |
+| `just run` | start the app on http://localhost:3000 |
+| `just studio` | open http://127.0.0.1:55323 to browse local tables |
+| `just db-reset` | wipe local data and re-apply migrations |
+| `just down` | stop the containers |
+| `just check` | production build + lint, same as Vercel |
+
+Local login: user `postgres`, password `postgres`, database `postgres`.
+
+### Hosted Supabase
+
+Migrations reach the hosted database **only through Vercel**: the
+`vercel-build` script runs `drizzle-kit migrate && next build` on every deploy,
+using Vercel's own `DATABASE_URL`. Nobody runs migrations against the cloud
+from a laptop. `GET /api/health` on the live URL lists the tables the hosted
+database actually has.
+
+### Schema change workflow
+
+edit `lib/db/schema.ts` → `just generate <name>` → `just migrate` (local) →
+test on localhost → update `docs/specs/data-contract.md` → push (Vercel
+migrates the hosted database during the build). Skill: `db-change`.
 
 ## 5. What an agent reads before each kind of task
 

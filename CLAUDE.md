@@ -74,6 +74,10 @@ Someone who has **never written code** and works by prompting Claude Code. So:
   the same loop: **build → test on localhost → commit and push → confirm the
   Vercel build is green → check the live URL.** Use the `ship-a-change` skill.
 - **Never stack new work on a red build.**
+- **Local development uses the local Supabase only** (`just up`, Docker). The
+  hosted database is reachable only from Vercel; its connection string never
+  goes in a file on this machine. `lib/db/target.ts` enforces this. Migrations
+  reach the cloud only via the Vercel build (`vercel-build` script).
 - **Commit messages ALWAYS use the format `<emoji> <type>: <message>`**, e.g.
   `✨ feat: add household setup form`. Types and their emoji:
   ✨ feat · 🐛 fix · 📝 docs · 🎨 style · ♻️ refactor · ✅ test · 🔧 chore ·

@@ -1,6 +1,49 @@
+# WattWiser — everyday commands. Run `just` to list them.
+# Local development talks ONLY to the local Supabase (ports 553xx). The hosted
+# database is reachable only from Vercel. See docs/architecture.md §4.
+
+default:
+    @just --list
+
+# install packages (pnpm only — never npm)
 install:
     rm -rf node_modules
     pnpm install
 
+# start the local Supabase (Postgres + Studio) in Docker
+up:
+    supabase start
+
+# stop the local Supabase
+down:
+    supabase stop
+
+# show local Supabase URLs and status
+status:
+    supabase status
+
+# apply pending schema migrations to the LOCAL database
+migrate:
+    pnpm db:migrate
+
+# generate a new migration after editing lib/db/schema.ts
+generate name:
+    pnpm exec drizzle-kit generate --name {{name}}
+
+# wipe the local database and re-apply all migrations (never touches the cloud)
+db-reset:
+    supabase db reset
+    pnpm db:migrate
+
+# open Supabase Studio for the local database
+studio:
+    open http://127.0.0.1:55323
+
+# run the web app on http://localhost:3000 (start `just up` first)
 run:
-    pnpm run dev
+    pnpm dev
+
+# production build + lint, the same checks Vercel runs
+check:
+    pnpm build
+    pnpm exec eslint .

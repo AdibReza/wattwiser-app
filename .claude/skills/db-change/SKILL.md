@@ -49,8 +49,11 @@ If the change touches a shared table, it must be communicated — see
 
 ## Making the change
 
-1. Write the migration.
-2. Apply it to Supabase.
+1. Edit `lib/db/schema.ts`, then `just generate <name>` to write the SQL migration.
+2. `just migrate` applies it to the **local** Supabase only. Test on localhost.
+   The hosted database gets it automatically when the change is deployed
+   (Vercel runs `drizzle-kit migrate` in `vercel-build`). Never migrate the
+   cloud from a laptop.
 3. **Update `docs/specs/data-contract.md` in the same change.** The doc is the
    published contract — a schema that has drifted from it is worse than no doc.
 4. Update `docs/specs/api-routes.md` if a response shape changed.

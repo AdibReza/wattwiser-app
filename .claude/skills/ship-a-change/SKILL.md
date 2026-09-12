@@ -26,8 +26,14 @@ machine — you will only wait five minutes to be told the same thing.
 ## 2. Test on localhost
 
 ```bash
+just up      # local Supabase, if not already running
+just migrate # if the change includes a migration
 pnpm dev
 ```
+
+Localhost only ever talks to the local database. If the app throws "Refusing
+to connect to a non-local database", `.env.local` is pointing at the cloud —
+fix the file, never the guard.
 
 Open the page that changed and check the thing that changed actually works. Then
 check you did not break the two screens nearest it.
@@ -51,6 +57,9 @@ git push
 Wait for the deployment to finish and check its status.
 
 **Green:** continue.
+The Vercel build also runs the schema migrations against the hosted database
+(`vercel-build`), so a migration error shows up here, not on your laptop.
+
 **Red:** open the build log, read the first error — not the last, the first — and
 fix it. Everything after the first error is usually noise. Do not start anything
 new until this is green.
