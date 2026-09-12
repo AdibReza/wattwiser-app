@@ -29,6 +29,7 @@ must always agree; change both in the same commit.
 > `appliance_signatures` with mock rows, since the real pipeline isn't running
 > yet. **Once it is, those seeds are deleted and the data side becomes the only
 > writer.** See [`mock-data.md`](./mock-data.md).
+> Seeded rows are recognisable: every seeded uuid begins with `5eed0000-`.
 
 ---
 

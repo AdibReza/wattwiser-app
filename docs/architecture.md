@@ -77,7 +77,7 @@ lib/
     queries/            one file per area: household.ts, appliances.ts, readings.ts …
   validation/           zod schemas + option lists shared by forms and routes
   readings/             source.ts (interface), mock.ts (generator; shelly.ts later)
-  mock/                 seed script                                 ← build step 8
+  mock/                 seed.ts — 30 days of demo data (just seed / seed-reset / seed-clear)
 drizzle/                generated SQL migrations (pnpm db:generate / db:migrate)
 drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local, local-only guard
 supabase/config.toml    local Supabase (Docker) — ports 553xx, db + studio only
@@ -175,6 +175,7 @@ analytics and mail are off.
 | `just run` | start the app on http://localhost:3000 |
 | `just studio` | open http://127.0.0.1:55323 to browse local tables |
 | `just db-reset` | wipe local data and re-apply migrations |
+| `just seed` / `just seed-reset` / `just seed-clear` | load / reload / remove the 30-day demo data |
 | `just down` | stop the containers |
 | `just check` | production build + lint, same as Vercel |
 

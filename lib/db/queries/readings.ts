@@ -27,9 +27,9 @@ export async function listReadings(from: Date, to: Date): Promise<ReadingPoint[]
 
 /**
  * Energy between two instants, in kWh, by integrating the readings (trapezoid
- * rule on W·s). Gaps longer than 5 s contribute nothing, so an idle tab does
- * not invent consumption. Computed in SQL so a day of 1-second rows never
- * travels to the app.
+ * rule on W·s). Gaps longer than 2 minutes contribute nothing, so an idle tab
+ * does not invent consumption, while 1-second live rows and 1-minute seeded
+ * history both count. Computed in SQL so a day of rows never travels to the app.
  */
 export async function energyKwh(from: Date, to: Date): Promise<number> {
   const [row] = await getDb().execute<{ kwh: string | null }>(sql`
@@ -42,7 +42,7 @@ export async function energyKwh(from: Date, to: Date): Promise<number> {
     )
     select coalesce(sum((watts + prev_watts) / 2 * extract(epoch from (ts - prev_ts))) / 3600000, 0) as kwh
     from pts
-    where prev_ts is not null and ts - prev_ts <= interval '5 seconds'
+    where prev_ts is not null and ts - prev_ts <= interval '2 minutes'
   `);
   return Number(row?.kwh ?? 0);
 }

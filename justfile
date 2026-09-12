@@ -47,3 +47,15 @@ run:
 check:
     pnpm build
     pnpm exec eslint .
+
+# load 30 days of demo data into the LOCAL database (skips if already there)
+seed:
+    pnpm db:seed
+
+# remove the demo data and load it again
+seed-reset:
+    pnpm db:seed --reset
+
+# remove the demo data only
+seed-clear:
+    pnpm db:seed --clear
