@@ -28,8 +28,12 @@ components/                     app/api/<route>/route.ts   route handlers
 
 **Rules of the layers**
 
-- Screens never import from `lib/db`. They call route handlers (or a server
-  action that lives next to the route handler and shares its code).
+- Screens never import the raw client (`getDb`). Server components read
+  through `lib/db/queries/*`; client components go through route handlers.
+  Route handlers use the same `lib/db/queries/*` functions, so there is one
+  implementation per table.
+- Validation schemas and option lists live in `lib/validation/*` and are shared
+  by the form (inline errors) and the route handler (400 responses).
 - Route handlers are the only place SQL column names become JSON field names.
 - The live power number always comes through `lib/readings/source.ts`.
   Swapping mock for Shelly changes one file and no screen.
@@ -69,6 +73,8 @@ lib/
   format.ts             every number/date → text conversion
   nav.ts                the sidebar's item list
   db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb()), target.ts (local-only guard)
+    queries/            one file per table: household.ts, appliances.ts …
+  validation/           zod schemas + option lists shared by forms and routes
   readings/             source.ts, mock.ts                          ← build step 5
   mock/                 seed script                                 ← build step 8
 drizzle/                generated SQL migrations (pnpm db:generate / db:migrate)

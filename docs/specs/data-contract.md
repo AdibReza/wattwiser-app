@@ -57,6 +57,19 @@ created_at        timestamptz default now()
 updated_at        timestamptz
 ```
 
+`tariff_config` shape by `tariff_type` (all rates in $/kWh):
+
+| `tariff_type` | `tariff_config` |
+|---|---|
+| `flat` | `{ "rate": 0.30 }` |
+| `time_of_use` | `{ "peakRate": 0.45, "offPeakRate": 0.20 }` |
+| `tiered` | `{ "tier1Rate": 0.25, "tier1UpToKwh": 300, "tier2Rate": 0.35 }` |
+
+Allowed values: `home_type` house | apartment | townhouse · `hot_water` electric | gas |
+solar | heat_pump | unknown · `heating` electric | gas | reverse_cycle_ac | none ·
+`cooling` split_ac | ducted_ac | fans_only | none. Source of truth in code:
+`lib/validation/household.ts`.
+
 ### `devices`
 
 The Shelly. From [`milestones.md` §2](../source/milestones.md#2-database). Minimal for this MVP — it drives the

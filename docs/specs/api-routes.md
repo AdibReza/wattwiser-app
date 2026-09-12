@@ -52,6 +52,34 @@ GET    /api/breakdown?month=2026-09       → per-appliance aggregation + cost
 
 ## Response shapes
 
+### `GET /api/household`
+
+`null` before first setup, otherwise:
+
+```json
+{
+  "id": "...",
+  "label": "12 Smith St",
+  "occupants": 3,
+  "homeType": "house",
+  "hotWater": "electric",
+  "heating": "reverse_cycle_ac",
+  "cooling": "split_ac",
+  "hasSolar": true,
+  "hasBattery": false,
+  "hasEv": false,
+  "tariff": { "tariffType": "flat", "rate": 0.30 },
+  "createdAt": "2026-09-12T02:10:00.000Z",
+  "updatedAt": null
+}
+```
+
+`PUT /api/household` takes the same object without `id` / `createdAt` /
+`updatedAt`, creates the row if none exists, otherwise updates it. Bad input →
+`400 { "error": "Some fields need attention.", "fields": { "occupants": "At least 1 person" } }`.
+`tariff.tariffType` selects which rate fields are required (see
+[`data-contract.md`](./data-contract.md#household)).
+
 ### `GET /api/appliances`
 
 ```json
