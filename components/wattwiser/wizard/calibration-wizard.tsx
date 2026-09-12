@@ -217,16 +217,57 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     );
   }
 
-  /* ---------- steps 4–5: next stages ---------- */
+  /* ---------- step 4 ---------- */
+  if (step === 4 && session) {
+    const latestMs = live.current ? new Date(live.current.ts).getTime() : null;
+    const elapsedS = latestMs ? Math.max(0, Math.round((latestMs - new Date(session.startedAt).getTime()) / 1000)) : null;
+    const aboveBaseline = live.current && session.baselineW != null ? live.current.watts - session.baselineW : null;
+    return (
+      <WizardShell
+        step={4}
+        title={copy.title}
+        help="Press Done only once it has switched off, so the recording ends where the appliance does."
+        note={copy.note}
+        cancel={cancel}
+        footer={
+          <Button onClick={() => setStep(5)} disabled={busy}>
+            {copy.button}
+          </Button>
+        }
+      >
+        <div className="flex items-center justify-between text-sm">
+          <StatusBadge status="recording" />
+          <span className="tabular text-muted-foreground" aria-live="polite">
+            Recording for {formatDuration(elapsedS)}
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border bg-muted/40 p-4">
+            <p className="text-sm font-medium text-muted-foreground">Total power now</p>
+            <p className="tabular mt-1 text-2xl font-semibold text-power">{formatWatts(live.current?.watts)}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/40 p-4">
+            <p className="text-sm font-medium text-muted-foreground">Above the baseline</p>
+            <p className="tabular mt-1 text-2xl font-semibold">{aboveBaseline == null ? "—" : formatWatts(Math.max(0, aboveBaseline))}</p>
+            <p className="mt-1 text-xs text-muted-foreground" role="status" aria-live="polite">
+              {aboveBaseline != null && aboveBaseline < 50 ? "Looks like it's off now." : "Still drawing power."}
+            </p>
+          </div>
+        </div>
+      </WizardShell>
+    );
+  }
+
+  /* ---------- step 5: next stage ---------- */
   return (
     <WizardShell
-      step={step}
+      step={5}
       title="Coming next"
-      help={`Step ${step} arrives in the next stage. The run is still recording.`}
+      help="Step 5 arrives in the next stage. The run is still recording."
       cancel={cancel}
       footer={
-        <Button variant="outline" onClick={() => setStep(3)}>
-          Back to step 3
+        <Button variant="outline" onClick={() => setStep(4)}>
+          Back to step 4
         </Button>
       }
     >
