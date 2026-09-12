@@ -117,8 +117,15 @@ before "now" so it never overlaps the live generator.
 
 **Removable in one step:** every seeded uuid starts with `5eed0000-`; readings
 are removed by the window's time range. Runs only against the local database
-(`lib/db/target.ts`); to seed the hosted database deliberately, run it with
-`ALLOW_CLOUD_DB=true` and the hosted `DATABASE_URL` in the environment.
+(`lib/db/target.ts`). Seeding the **hosted** database is a deliberate one-off:
+
+```
+just seed-cloud "<the DATABASE_URL from Vercel>"           # load
+just seed-cloud "<the DATABASE_URL from Vercel>" --clear   # remove
+```
+
+It keeps any household row that is already there, and `--clear` removes every
+seeded row again. Nothing else on this machine may reach the hosted database.
 
 ### These seeds are temporary
 

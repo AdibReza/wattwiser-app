@@ -59,3 +59,10 @@ seed-reset:
 # remove the demo data only
 seed-clear:
     pnpm db:seed --clear
+
+# seed the HOSTED database — a deliberate one-off, normally blocked by lib/db/target.ts.
+# Pass the DATABASE_URL from Vercel. Add --reset or --clear as a second argument.
+#   just seed-cloud "postgresql://…"            load
+#   just seed-cloud "postgresql://…" --clear    remove
+seed-cloud url *args:
+    ALLOW_CLOUD_DB=true DATABASE_URL="{{url}}" pnpm db:seed {{args}}
