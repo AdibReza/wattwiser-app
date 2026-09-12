@@ -10,7 +10,7 @@ export function MonthPicker({ month, months }: { month: string; months: string[]
   const options = months.includes(month) ? months : [month, ...months];
   return (
     <Select value={month} onValueChange={(m) => router.push(`/breakdown?month=${m}`)}>
-      <SelectTrigger className="w-[190px]" aria-label="Month">
+      <SelectTrigger className="w-full sm:w-[190px]" aria-label="Month">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

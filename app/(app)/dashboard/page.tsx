@@ -25,7 +25,7 @@ export default async function DashboardPage() {
         title={household?.label ? household.label : "Dashboard"}
         description="Live power and today's energy for your home."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <Link href="/appliances/new">
                 <Plus data-icon="inline-start" />

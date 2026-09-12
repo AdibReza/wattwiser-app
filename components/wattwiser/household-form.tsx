@@ -232,7 +232,7 @@ export function HouseholdForm({ initial }: { initial: Household | null }) {
             <FieldLegend>Energy systems</FieldLegend>
             <FieldDescription>How your home heats water and air. This narrows what WattWiser looks for.</FieldDescription>
             <FieldGroup>
-              <div className="grid gap-6 sm:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <SelectField
                   id="hotWater"
                   label="Hot water"
@@ -327,7 +327,7 @@ export function HouseholdForm({ initial }: { initial: Household | null }) {
                 </div>
               )}
               {form.tariffType === "tiered" && (
-                <div className="grid gap-6 sm:grid-cols-3">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   <RateField id="tier1Rate" label="Tier 1 rate" value={form.tier1Rate} onChange={(v) => set("tier1Rate", v)} error={rateErr("tier1Rate")} />
                   <Field data-invalid={!!errors["tariff.tier1UpToKwh"]}>
                     <FieldLabel htmlFor="tier1UpToKwh">Tier 1 up to</FieldLabel>

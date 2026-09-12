@@ -14,6 +14,7 @@ import type { BreakdownItem } from "@/lib/breakdown";
 export function BreakdownTable({ items, hasTariff }: { items: BreakdownItem[]; hasTariff: boolean }) {
   return (
     <Card className="gap-0 overflow-hidden py-0">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <caption className="sr-only">Estimated energy, share, cost and confidence for each appliance this month</caption>
         <thead>
@@ -38,8 +39,8 @@ export function BreakdownTable({ items, hasTariff }: { items: BreakdownItem[]; h
             return (
               <tr key={item.applianceId ?? "unknown"} className={cn(unknown && "bg-muted/30")}>
                 <th scope="row" className="px-5 py-4 text-left font-normal">
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">{item.appliance}</span>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <span className="truncate font-medium">{item.appliance}</span>
                     <div className="flex items-center gap-3">
                       <div className="h-2 w-full max-w-48 overflow-hidden rounded-full bg-muted" aria-hidden>
                         <div
@@ -71,6 +72,7 @@ export function BreakdownTable({ items, hasTariff }: { items: BreakdownItem[]; h
           })}
         </tbody>
       </table>
+      </div>
     </Card>
   );
 }

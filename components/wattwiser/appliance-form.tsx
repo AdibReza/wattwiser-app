@@ -298,7 +298,7 @@ export function ApplianceForm(props: Props) {
         {initial ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button type="button" variant="ghost" className="text-destructive hover:text-destructive" disabled={busy}>
+              <Button type="button" variant="destructive" disabled={busy}>
                 Delete
               </Button>
             </AlertDialogTrigger>

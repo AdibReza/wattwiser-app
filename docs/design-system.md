@@ -91,8 +91,10 @@ is the frame from the "Dashboard (Basic)" figure:
 └──────────────┴──────────────────────────────────────┘
 ```
 
-- Sidebar is 240px on `md` and up; on mobile it becomes a top bar with a
-  menu button that opens a drawer (shadcn `Sheet`).
+- Sidebar is 240px on `md` and up and **stays pinned** (`sticky top-0 h-screen`)
+  while the page scrolls, so the nav is always reachable. On mobile it becomes a
+  sticky top bar with a menu button that opens a drawer (shadcn `Sheet`). The bar
+  is solid `bg-sidebar` — no `backdrop-blur`, which costs paint on every frame.
 - Nav items come from one list, [`lib/nav.ts`](../lib/nav.ts). Add a screen
   there and every menu updates. Calibration is **not** in the menu: it always
   starts from an appliance.
@@ -173,7 +175,11 @@ Every screen, in this order:
 1. `PageHeader` with exactly one primary `Button` (or none).
 2. Stat tiles if the screen has headline numbers (`grid gap-4 sm:grid-cols-2 lg:grid-cols-4`).
 3. One main content card, or a list of cards / a table.
-4. Secondary actions are `variant="outline"` or `variant="ghost"`.
+4. Secondary actions are `variant="outline"`. **Never `ghost` for a standalone
+   action** — it has no background until you hover it, so it reads as plain text.
+   `ghost` is reserved for the ✕ close control inside shadcn dialogs and sheets.
+   A destructive action uses `variant="destructive"` (soft red fill), never a
+   ghost hand-tinted with `text-destructive`.
 
 Required states for every screen that loads data:
 
@@ -208,4 +214,6 @@ the submit button at the bottom right. Validation messages are plain sentences.
 | `StatusBadge status="not-calibrated"` | `<span className="text-orange-500">Not calibrated</span>` |
 | `formatWatts(w)` | `` `${w} W` `` |
 | `EmptyState` with a next step | an empty white card |
+| `variant="outline"` for a secondary action | `variant="ghost"` for a button that has to be findable |
+| `variant="destructive"` for Delete | a ghost button hand-tinted `text-destructive` |
 | keep `components/ui/` as installed | editing shadcn files by hand |

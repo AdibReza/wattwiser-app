@@ -22,19 +22,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[240px_1fr]">
+    <div className="min-h-screen md:grid md:grid-cols-[240px_1fr] md:items-start">
       {/* Desktop sidebar */}
-      <aside className="hidden border-r bg-sidebar md:flex md:flex-col md:gap-6 md:p-4">
+      <aside className="hidden border-r bg-sidebar md:sticky md:top-0 md:flex md:h-screen md:flex-col md:gap-6 md:self-start md:overflow-y-auto md:p-4">
         <Brand />
         <SidebarNav />
       </aside>
 
       {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b bg-sidebar px-2 py-2 md:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-sidebar px-2 py-2 md:hidden">
         <Brand />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Open menu">
+            <Button variant="outline" size="icon" className="size-10" aria-label="Open menu">
               <Menu className="size-5" />
             </Button>
           </SheetTrigger>

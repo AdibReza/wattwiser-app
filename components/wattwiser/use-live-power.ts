@@ -7,6 +7,9 @@ export type Point = { ts: string; watts: number };
 
 const WINDOW_S = 60;
 
+/** True while the tab is in the background, so the polls can idle there. */
+const hidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
+
 /**
  * Polls /api/readings/current once a second while mounted and keeps the last
  * 60 seconds as a rolling window (seeded from /api/readings so the chart is
@@ -33,6 +36,12 @@ export function useLivePower(intervalMs = 1000) {
     }
 
     async function tick() {
+      // A hidden tab still holds a React tree. Skip the work and the render
+      // until it comes back; `onVisible` fires an immediate catch-up tick.
+      if (hidden()) {
+        if (active) timer = setTimeout(tick, intervalMs);
+        return;
+      }
       try {
         const res = await fetch("/api/readings/current", { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));
@@ -49,10 +58,18 @@ export function useLivePower(intervalMs = 1000) {
       }
     }
 
+    function onVisible() {
+      if (!active || hidden()) return;
+      clearTimeout(timer);
+      tick();
+    }
+
     seed().then(tick);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [intervalMs]);
 
@@ -71,6 +88,10 @@ export function useTodayEnergy(intervalMs = 10_000) {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     async function tick() {
+      if (hidden()) {
+        if (active) timer = setTimeout(tick, intervalMs);
+        return;
+      }
       try {
         const midnight = new Date();
         midnight.setHours(0, 0, 0, 0);
@@ -83,10 +104,17 @@ export function useTodayEnergy(intervalMs = 10_000) {
         if (active) timer = setTimeout(tick, intervalMs);
       }
     }
+    function onVisible() {
+      if (!active || hidden()) return;
+      clearTimeout(timer);
+      tick();
+    }
     tick();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [intervalMs]);
   return kwh;

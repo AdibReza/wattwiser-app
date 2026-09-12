@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StatusBadge } from "@/components/wattwiser/status-badge";
 import { useLivePower } from "@/components/wattwiser/use-live-power";
-import { PowerChart } from "@/components/wattwiser/power-chart";
+import { PowerChart } from "@/components/wattwiser/power-chart-lazy";
 import { WizardShell } from "@/components/wattwiser/wizard/wizard-shell";
 import { assessStability, type Stability } from "@/lib/calibration/stability";
 import { stepCopy } from "@/lib/calibration/copy";
@@ -122,7 +122,7 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     session && step >= 2 && step <= 4 ? (
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="sm" disabled={busy}>
+          <Button variant="outline" size="sm" disabled={busy}>
             Cancel
           </Button>
         </AlertDialogTrigger>
@@ -140,7 +140,7 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
         </AlertDialogContent>
       </AlertDialog>
     ) : (
-      <Button variant="ghost" size="sm" onClick={goToAppliance} disabled={busy}>
+      <Button variant="outline" size="sm" onClick={goToAppliance} disabled={busy}>
         Cancel
       </Button>
     );
@@ -292,7 +292,7 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
       title={copy.title}
       help={copy.help}
       cancel={
-        <Button variant="ghost" size="sm" onClick={goToAppliance}>
+        <Button variant="outline" size="sm" onClick={goToAppliance}>
           Close
         </Button>
       }

@@ -52,24 +52,44 @@ export function confidenceLabel(confidence: Confidence): string {
   }
 }
 
+/*
+ * Building an Intl.DateTimeFormat is expensive, and these run in hot paths —
+ * once per chart axis tick, once per list row. Build each one once, on first
+ * use, and reuse it. `undefined` locale still means "the environment's locale",
+ * exactly as before.
+ */
+function once<T>(make: () => T): () => T {
+  let value: T | undefined;
+  return () => (value ??= make());
+}
+
+const dateTimeFormat = once(
+  () =>
+    new Intl.DateTimeFormat(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
+);
+
+const timeFormat = once(() => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }));
+
+const monthFormat = once(() => new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }));
+
 /** UTC ISO string -> local date and time for display, e.g. "12 Sep 2026, 7:15 pm" */
 export function formatDateTime(utcIso: string | Date | null | undefined): string {
   if (!utcIso) return "—";
   const d = typeof utcIso === "string" ? new Date(utcIso) : utcIso;
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
+  return dateTimeFormat().format(d);
 }
 
 /** UTC ISO string -> local time only, e.g. "7:15 pm" */
 export function formatTime(utcIso: string | Date | null | undefined): string {
   if (!utcIso) return "—";
   const d = typeof utcIso === "string" ? new Date(utcIso) : utcIso;
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(d);
+  return timeFormat().format(d);
 }
 
 /** seconds -> "2 min 10 s" / "45 s" */
@@ -84,7 +104,5 @@ export function formatDuration(seconds: number | null | undefined): string {
 export function formatMonth(month: string): string {
   const m = /^(\d{4})-(\d{2})$/.exec(month);
   if (!m) return month;
-  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
-    new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 15))
-  );
+  return monthFormat().format(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 15)));
 }

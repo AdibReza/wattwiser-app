@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useDeferredValue, useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -8,11 +9,22 @@ import type { Point } from "./use-live-power";
 
 const config = { watts: { label: "Power", color: "var(--chart-1)" } } satisfies ChartConfig;
 
+/* Stable prop identities, so the axes don't reconcile on every one-second tick. */
+const formatTimeTick = (v: number) => formatTime(new Date(v));
+const formatWattsTick = (v: number) => formatWatts(v);
+const yDomain: [number, (max: number) => number] = [0, (max: number) => Math.max(500, Math.ceil(max / 500) * 500)];
+const chartMargin = { left: 0, right: 8, top: 8, bottom: 0 };
+
 /**
  * Whole-house power over the last 60 seconds. The current value is always
  * shown as text beside the title, so nobody has to read it off the line.
+ *
+ * New readings arrive once a second. `useDeferredValue` re-renders the SVG at
+ * transition priority, so redrawing the line yields to scrolling and clicks
+ * instead of blocking them; the headline number beside the title is NOT
+ * deferred, so it stays exactly in step with the tile.
  */
-export function PowerChart({
+function PowerChartImpl({
   points,
   current,
   title = "Power, last 60 seconds",
@@ -25,14 +37,21 @@ export function PowerChart({
   className?: string;
   height?: number;
 }) {
-  const data = points.map((p) => ({ t: new Date(p.ts).getTime(), watts: p.watts }));
+  const deferredPoints = useDeferredValue(points);
+
+  const data = useMemo(
+    () => deferredPoints.map((p) => ({ t: new Date(p.ts).getTime(), watts: p.watts })),
+    [deferredPoints]
+  );
   // The window ends at the newest reading, not the wall clock, so rendering stays pure.
-  const latest = data.length ? data[data.length - 1].t : 0;
-  const domain: [number, number] = [latest - 60_000, latest];
+  const domain = useMemo<[number, number]>(() => {
+    const latest = data.length ? data[data.length - 1].t : 0;
+    return [latest - 60_000, latest];
+  }, [data]);
 
   return (
     <Card className={className}>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-base font-medium">{title}</CardTitle>
         <span className="tabular text-2xl font-semibold text-power" aria-live="polite">
           {formatWatts(current)}
@@ -48,8 +67,8 @@ export function PowerChart({
             Collecting the first readings…
           </div>
         ) : (
-          <ChartContainer config={config} className="w-full" style={{ height }}>
-            <AreaChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+          <ChartContainer config={config} className="aspect-auto w-full" style={{ height }}>
+            <AreaChart data={data} margin={chartMargin}>
               <defs>
                 <linearGradient id="powerFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--color-watts)" stopOpacity={0.25} />
@@ -61,17 +80,17 @@ export function PowerChart({
                 dataKey="t"
                 type="number"
                 domain={domain}
-                tickFormatter={(v: number) => formatTime(new Date(v))}
+                tickFormatter={formatTimeTick}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={48}
               />
               <YAxis
-                tickFormatter={(v: number) => formatWatts(v)}
+                tickFormatter={formatWattsTick}
                 tickLine={false}
                 axisLine={false}
                 width={64}
-                domain={[0, (max: number) => Math.max(500, Math.ceil(max / 500) * 500)]}
+                domain={yDomain}
               />
               <ChartTooltip
                 content={
@@ -97,3 +116,5 @@ export function PowerChart({
     </Card>
   );
 }
+
+export const PowerChart = memo(PowerChartImpl);

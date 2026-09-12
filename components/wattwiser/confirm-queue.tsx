@@ -120,10 +120,10 @@ export function ConfirmQueue({ queue, appliances }: { queue: PendingEvent[]; app
               No, it wasn&apos;t
             </Button>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <Button variant="ghost" className="flex-1" disabled={busy || !appliances.length} onClick={() => setPicking(true)}>
+              <Button variant="outline" className="flex-1" disabled={busy || !appliances.length} onClick={() => setPicking(true)}>
                 Choose another appliance
               </Button>
-              <Button variant="ghost" className="flex-1" disabled={busy} onClick={() => answer("unknown")}>
+              <Button variant="outline" className="flex-1" disabled={busy} onClick={() => answer("unknown")}>
                 I don&apos;t know
               </Button>
             </div>
@@ -146,7 +146,7 @@ export function ConfirmQueue({ queue, appliances }: { queue: PendingEvent[]; app
                     type="button"
                     disabled={busy}
                     onClick={() => answer("other", a.id)}
-                    className="w-full rounded-lg px-2 py-3 text-left hover:bg-muted disabled:opacity-50"
+                    className="w-full rounded-lg px-2 py-3 text-left transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
                   >
                     <span className="font-medium">{a.name}</span>
                     {a.category ? <span className="block text-sm text-muted-foreground">{a.category}</span> : null}

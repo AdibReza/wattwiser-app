@@ -2,7 +2,7 @@
 
 import { StatCard } from "@/components/wattwiser/stat-card";
 import { LiveTiles, TodayEnergyTile } from "@/components/wattwiser/live-tiles";
-import { PowerChart } from "@/components/wattwiser/power-chart";
+import { PowerChart } from "@/components/wattwiser/power-chart-lazy";
 import { useLivePower } from "@/components/wattwiser/use-live-power";
 
 export function DashboardLive({ appliances }: { appliances: { total: number; calibrated: number } }) {
