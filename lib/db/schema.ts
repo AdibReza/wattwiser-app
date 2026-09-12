@@ -123,3 +123,16 @@ export const eventConfirmations = pgTable("event_confirmations", {
   answer: text("answer"), // yes | no | other | unknown
   createdAt: utc("created_at").defaultNow(),
 });
+
+/**
+ * MVP ONLY — web-side table behind the /dev demo panel. Holds which simulated
+ * appliances are switched on so the mock generator (lib/readings/mock.ts) can
+ * compute the live power on every request. Dropped when the real pipeline runs.
+ */
+export const mockSwitches = pgTable("mock_switches", {
+  id: text("id").primaryKey(), // kettle | washing_machine | microwave | air_conditioner
+  label: text("label").notNull(),
+  watts: integer("watts").notNull(),
+  isOn: boolean("is_on").notNull().default(false),
+  updatedAt: utc("updated_at").defaultNow(),
+});

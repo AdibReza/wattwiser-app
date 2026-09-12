@@ -40,6 +40,13 @@ GET    /api/readings/current              → { watts, ts, deviceConnected }
 GET    /api/readings?from=&to=            → array for charting
 ```
 
+### Demo controls (not part of the product API)
+
+```
+GET    /api/dev/switches                  → [{ id, label, watts, isOn }]
+PATCH  /api/dev/switches/:id              body: { isOn }
+```
+
 ### Events and breakdown
 
 ```
@@ -113,6 +120,15 @@ Entertainment | Other; `applianceClass` simple | multi_stage | variable_load).
 ```
 
 Newest first. `endedAt` and `durationS` are `null` while `status` is `running`.
+
+### `GET /api/readings/current`
+
+```json
+{ "watts": 2634, "ts": "2026-09-12T05:40:12.114Z", "deviceConnected": true }
+```
+
+`GET /api/readings?from=&to=` returns `[{ "ts": "...", "watts": 412 }, …]`
+oldest first; defaults to the last 60 seconds, at most 24 hours per call.
 
 ### `GET /api/breakdown`
 

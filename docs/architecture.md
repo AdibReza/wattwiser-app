@@ -74,9 +74,9 @@ lib/
   format.ts             every number/date → text conversion
   nav.ts                the sidebar's item list
   db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb()), target.ts (local-only guard)
-    queries/            one file per table: household.ts, appliances.ts …
+    queries/            one file per area: household.ts, appliances.ts, readings.ts …
   validation/           zod schemas + option lists shared by forms and routes
-  readings/             source.ts, mock.ts                          ← build step 5
+  readings/             source.ts (interface), mock.ts (generator; shelly.ts later)
   mock/                 seed script                                 ← build step 8
 drizzle/                generated SQL migrations (pnpm db:generate / db:migrate)
 drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local, local-only guard

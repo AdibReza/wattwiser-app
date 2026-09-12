@@ -211,6 +211,13 @@ answer                  text   -- yes | no | other | unknown
 created_at              timestamptz default now()
 ```
 
+### `mock_switches` — MVP only, web side, not part of the contract
+
+Backs the `/dev` demo panel: which simulated appliances are switched on.
+`id text pk · label text · watts int · is_on boolean · updated_at timestamptz`.
+Dropped, with the mock generator, once the real pipeline runs. The data side
+never reads it.
+
 ---
 
 ## Where the aggregation happens

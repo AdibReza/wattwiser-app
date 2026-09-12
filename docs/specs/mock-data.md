@@ -34,6 +34,27 @@ One value per second.
 Each is toggled on and off from `/dev` — see
 [`screens.md`](./screens.md#8-dev-panel--dev).
 
+### How it is implemented
+
+Vercel has no long-running process, so nothing "ticks" once a second on the
+server. Instead:
+
+- `lib/readings/source.ts` is the single interface (`current()`, `range()`).
+  `lib/readings/mock.ts` implements it; a future `shelly.ts` replaces it by
+  changing one line.
+- **Which simulated appliances are on** is stored in the `mock_switches` table
+  (web-side, MVP only) so `/dev` and every dashboard tab agree.
+- `GET /api/readings/current` computes the value from the clock and the
+  switches, writes one `readings` row (at most one per second, however many
+  browsers poll), and marks the simulated `devices` row as seen so the
+  Dashboard shows **Connected** while something is polling.
+- Browsers poll `/api/readings/current` once a second
+  (`components/wattwiser/live-tiles.tsx`); the 60-second chart reads
+  `GET /api/readings?from=&to=`.
+
+Consequence: history only accumulates while a dashboard or `/dev` tab is open.
+That is enough for a demo. Retention (30-day roll-up) is still to do.
+
 ### Why it is built this way
 
 - The calibration wizard gets a chart that **genuinely moves**, so the wizard can
