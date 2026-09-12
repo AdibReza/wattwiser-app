@@ -18,10 +18,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StatusBadge } from "@/components/wattwiser/status-badge";
 import { useLivePower } from "@/components/wattwiser/use-live-power";
+import { PowerChart } from "@/components/wattwiser/power-chart";
 import { WizardShell } from "@/components/wattwiser/wizard/wizard-shell";
 import { assessStability, type Stability } from "@/lib/calibration/stability";
 import { stepCopy } from "@/lib/calibration/copy";
-import { formatWatts } from "@/lib/format";
+import { formatDuration, formatWatts } from "@/lib/format";
 import type { Appliance } from "@/lib/validation/appliance";
 import type { CalibrationSession } from "@/lib/validation/calibration";
 
@@ -184,7 +185,39 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     );
   }
 
-  /* ---------- steps 3–5: next stages ---------- */
+  /* ---------- step 3 ---------- */
+  if (step === 3 && session) {
+    // Elapsed time comes from the newest reading's timestamp, not the wall clock, so rendering stays pure.
+    const latestMs = live.current ? new Date(live.current.ts).getTime() : null;
+    const elapsedS = latestMs ? Math.max(0, Math.round((latestMs - new Date(session.startedAt).getTime()) / 1000)) : null;
+    return (
+      <WizardShell
+        step={3}
+        title={copy.title}
+        help={copy.help}
+        note={copy.note}
+        cancel={cancel}
+        footer={
+          <Button onClick={() => setStep(4)} disabled={busy}>
+            {copy.button}
+          </Button>
+        }
+      >
+        <div className="flex items-center justify-between text-sm">
+          <StatusBadge status="recording" />
+          <span className="tabular text-muted-foreground" aria-live="polite">
+            Recording for {formatDuration(elapsedS)}
+          </span>
+        </div>
+        <PowerChart points={live.points} current={live.current?.watts} title="Power while recording" height={180} className="shadow-none" />
+        <p className="tabular text-sm text-muted-foreground">
+          Baseline before switching on: {formatWatts(session.baselineW)}
+        </p>
+      </WizardShell>
+    );
+  }
+
+  /* ---------- steps 4–5: next stages ---------- */
   return (
     <WizardShell
       step={step}
@@ -192,8 +225,8 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
       help={`Step ${step} arrives in the next stage. The run is still recording.`}
       cancel={cancel}
       footer={
-        <Button variant="outline" onClick={() => setStep(2)}>
-          Back to step 2
+        <Button variant="outline" onClick={() => setStep(3)}>
+          Back to step 3
         </Button>
       }
     >
