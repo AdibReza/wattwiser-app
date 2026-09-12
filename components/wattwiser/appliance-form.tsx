@@ -324,8 +324,8 @@ export function ApplianceForm(props: Props) {
           <Button type="button" variant="outline" onClick={() => router.push("/appliances")} disabled={busy}>
             Cancel
           </Button>
-          <Button type="submit" disabled={busy}>
-            {busy ? "Saving…" : initial ? "Save" : "Add appliance"}
+          <Button type="submit" variant={initial ? "secondary" : "default"} disabled={busy}>
+            {busy ? "Saving…" : initial ? "Save changes" : "Add appliance"}
           </Button>
         </div>
       </div>
