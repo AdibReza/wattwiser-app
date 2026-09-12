@@ -79,3 +79,12 @@ export function formatDuration(seconds: number | null | undefined): string {
   const s = Math.round(seconds % 60);
   return m > 0 ? `${m} min ${s} s` : `${s} s`;
 }
+
+/** "2026-09" -> "September 2026". The month label is a display decision. */
+export function formatMonth(month: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return month;
+  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
+    new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 15))
+  );
+}

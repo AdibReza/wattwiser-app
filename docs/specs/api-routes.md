@@ -158,18 +158,37 @@ UTC, the meaning of "today" is a display decision.
 
 ### `GET /api/breakdown`
 
+`?month=2026-09` (defaults to the current month). Computed on request from
+`events`; nothing stores the aggregate.
+
 ```json
 {
   "month": "2026-09",
-  "totalKwh": 500,
+  "totalKwh": 52.5,
+  "totalCost": 15.74,
+  "identifiedPercent": 72,
   "items": [
-    { "appliance": "Air conditioning", "kwh": 150.0, "percent": 30.0, "cost": 0, "confidence": "medium" },
-    { "appliance": "Hot water",        "kwh": 100.0, "percent": 20.0, "cost": 0, "confidence": "medium" },
-    { "appliance": "Kettle",           "kwh": 12.0,  "percent": 2.4,  "cost": 0, "confidence": "high" },
-    { "appliance": "Unknown / Other",  "kwh": 128.0, "percent": 25.6, "cost": 0, "confidence": null }
-  ]
+    { "applianceId": "…", "appliance": "Air conditioner", "kwh": 19.9, "percent": 37.9, "cost": 5.97, "confidence": "medium", "runs": 8, "lastRunAt": "2026-09-11T04:29:14.892Z" },
+    { "applianceId": null, "appliance": "Unknown / Other", "kwh": 14.8, "percent": 28.2, "cost": 4.45, "confidence": null, "runs": 25, "lastRunAt": "2026-09-11T01:32:51.298Z" }
+  ],
+  "recent": [{ "id": "…", "appliance": "Kettle", "applianceId": "…", "startedAt": "…", "endedAt": "…", "kwh": 0.11 }],
+  "tariffLabel": "Flat rate, $0.30/kWh",
+  "availableMonths": ["2026-09", "2026-08"]
 }
 ```
+
+Biggest first, **Unknown / Other always last and always present** even at 0 kWh.
+`confidence` is `"high" | "medium" | "low" | null` — never the stored decimal.
+`cost` and `totalCost` are `null` when the household has no tariff yet; the
+screen shows energy anyway and says why the cost is missing.
+
+**How cost is worked out** (`lib/tariff.ts`, checked by `lib/tariff.check.ts`):
+
+| Tariff | Rule |
+|---|---|
+| `flat` | kWh × rate |
+| `time_of_use` | each run's energy is split by how much of it falls in **peak, weekdays 3pm–9pm local** |
+| `tiered` | tiers apply to the household's monthly total, so every row is charged the month's blended rate |
 
 The **Unknown / Other** row is always present, and its `confidence` is `null` —
 not a value. See [`data-contract.md`](./data-contract.md#events).

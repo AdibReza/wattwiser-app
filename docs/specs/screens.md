@@ -168,7 +168,12 @@ MVP.
 > [`refined-flow-and-tasks.md` §12](../source/refined-flow-and-tasks.md#12-energy-disaggregation-output) says it directly: don't pretend every watt
 > can be assigned.
 
-### Optional, if time allows
+Built as: three headline tiles (energy, estimated cost, identified share), a
+ranked table where each row carries a one-hue share meter plus the percentage
+in text, and a Recent activity list. The month lives in the URL (`?month=`) so
+a view can be linked. Cost rules and their assumptions: [`api-routes.md`](./api-routes.md#get-apibreakdown).
+
+### Optional, if time allows — not built
 
 Per [`refined-flow-and-tasks.md` §13](../source/refined-flow-and-tasks.md#13-customer-dashboard):
 

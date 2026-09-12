@@ -43,10 +43,11 @@ studio:
 run:
     pnpm dev
 
-# production build + lint, the same checks Vercel runs
+# production build + lint + cost-maths checks, the same checks Vercel runs
 check:
     pnpm build
     pnpm exec eslint .
+    pnpm check:maths
 
 # load 30 days of demo data into the LOCAL database (skips if already there)
 seed:

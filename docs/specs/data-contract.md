@@ -66,6 +66,12 @@ updated_at        timestamptz
 | `time_of_use` | `{ "peakRate": 0.45, "offPeakRate": 0.20 }` |
 | `tiered` | `{ "tier1Rate": 0.25, "tier1UpToKwh": 300, "tier2Rate": 0.35 }` |
 
+Two things the form does not collect, fixed as documented MVP assumptions in
+`lib/tariff.ts`: the household's timezone (`Australia/Sydney`) and the
+time-of-use peak window (**weekdays 3pm–9pm local**). Both matter only for
+turning kWh into dollars; storage stays UTC. Making them per-household is a
+column each, not a redesign.
+
 Allowed values: `home_type` house | apartment | townhouse · `hot_water` electric | gas |
 solar | heat_pump | unknown · `heating` electric | gas | reverse_cycle_ac | none ·
 `cooling` split_ac | ducted_ac | fans_only | none. Source of truth in code:

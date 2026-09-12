@@ -72,6 +72,9 @@ lib/
   utils.ts              cn()
   api.ts                route-handler helpers: parseBody, badRequest, notFound, serverError
   format.ts             every number/date → text conversion
+  tariff.ts             kWh → dollars (peak window, timezone, tier rules)
+  tariff.check.ts       PASS/FAIL checks for the cost maths (pnpm check:maths)
+  breakdown.ts          aggregates a month of events into the breakdown rows
   nav.ts                the sidebar's item list
   db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb()), target.ts (local-only guard)
     queries/            one file per area: household.ts, appliances.ts, readings.ts …
@@ -140,7 +143,7 @@ create it earlier.
 ### Quality gates (in this order, every change)
 
 1. `pnpm build` is green — Vercel runs the same build.
-2. `pnpm exec eslint .` reports nothing.
+2. `pnpm exec eslint .` reports nothing, and `pnpm check:maths` passes.
 3. The screen is checked on localhost against `docs/design-system.md` §5–7.
 4. Commit as `<emoji> <type>: <message>`, push, confirm Vercel green, open the live URL.
 
