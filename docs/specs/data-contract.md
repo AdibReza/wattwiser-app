@@ -124,6 +124,11 @@ baseline_w        numeric                 -- total power before switch-on
 created_at        timestamptz default now()
 ```
 
+> Deleting an appliance **cascades** to its `calibration_sessions` and
+> `appliance_signatures`; `events.appliance_id` and
+> `event_confirmations.confirmed_appliance_id` are **set to null** (the run
+> becomes part of the Unknown bucket). Migration `0001_appliance_delete_rules`.
+
 > **This is the main output of the web side.** The data side reads `started_at` /
 > `ended_at`, slices the matching window of `readings`, and derives a signature
 > from it.

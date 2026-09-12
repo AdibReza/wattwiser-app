@@ -70,6 +70,7 @@ components/
   wattwiser/            StatCard, StatusBadge, EmptyState, (later) PowerChart, WizardStep…
 lib/
   utils.ts              cn()
+  api.ts                route-handler helpers: parseBody, badRequest, notFound, serverError
   format.ts             every number/date → text conversion
   nav.ts                the sidebar's item list
   db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb()), target.ts (local-only guard)

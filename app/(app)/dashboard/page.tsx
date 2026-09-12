@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/wattwiser/empty-state";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { getHousehold } from "@/lib/db/queries/household";
+import { countAppliances } from "@/lib/db/queries/appliances";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * exists (step 5) the tiles show "—" — never a made-up fixed number.
  */
 export default async function DashboardPage() {
-  const household = await getHousehold();
+  const [household, appliances] = await Promise.all([getHousehold(), countAppliances()]);
 
   return (
     <>
@@ -43,7 +44,11 @@ export default async function DashboardPage() {
         <StatCard label="Current power" value="—" tone="power" />
         <StatCard label="Today's energy" value="—" />
         <StatCard label="Device status" value={<StatusBadge status="not-connected" />} />
-        <StatCard label="Appliances" value="—" />
+        <StatCard
+          label="Appliances"
+          value={appliances.total}
+          hint={appliances.total ? `${appliances.calibrated} calibrated` : "None added yet"}
+        />
       </div>
 
       <div className="mt-6">

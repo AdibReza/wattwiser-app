@@ -96,6 +96,24 @@ GET    /api/breakdown?month=2026-09       → per-appliance aggregation + cost
 ]
 ```
 
+`POST /api/appliances` and `PATCH /api/appliances/:id` take
+`{ name, category, applianceClass, ratedWatts?, brandModel?, commonSettings?, notes? }`
+(`category` one of Kitchen | Laundry | Heating & cooling | Hot water |
+Entertainment | Other; `applianceClass` simple | multi_stage | variable_load).
+`POST` returns 201. `DELETE` returns 204; its calibration runs go with it.
+`GET /api/appliances/:id` returns the summary fields plus `brandModel`,
+`commonSettings`, `notes`, `createdAt`.
+
+### `GET /api/appliances/:id/calibrations`
+
+```json
+[
+  { "id": "...", "startedAt": "2026-09-12T02:10:00.000Z", "endedAt": "2026-09-12T02:14:20.000Z", "status": "completed", "durationS": 260 }
+]
+```
+
+Newest first. `endedAt` and `durationS` are `null` while `status` is `running`.
+
 ### `GET /api/breakdown`
 
 ```json

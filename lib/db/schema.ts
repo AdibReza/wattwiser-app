@@ -64,7 +64,7 @@ export const calibrationSessions = pgTable(
   "calibration_sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    applianceId: uuid("appliance_id").references(() => appliances.id),
+    applianceId: uuid("appliance_id").references(() => appliances.id, { onDelete: "cascade" }),
     startedAt: utc("started_at").notNull(), // when the user confirmed "on"
     endedAt: utc("ended_at"), // null = still running
     status: text("status").notNull(), // running | completed | discarded
@@ -76,7 +76,7 @@ export const calibrationSessions = pgTable(
 
 export const applianceSignatures = pgTable("appliance_signatures", {
   id: uuid("id").primaryKey().defaultRandom(),
-  applianceId: uuid("appliance_id").references(() => appliances.id),
+  applianceId: uuid("appliance_id").references(() => appliances.id, { onDelete: "cascade" }),
   deltaOnW: numeric("delta_on_w"),
   deltaOffW: numeric("delta_off_w"),
   durationMinS: integer("duration_min_s"),
@@ -104,7 +104,7 @@ export const events = pgTable(
   "events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    applianceId: uuid("appliance_id").references(() => appliances.id), // null = Unknown bucket
+    applianceId: uuid("appliance_id").references(() => appliances.id, { onDelete: "set null" }), // null = Unknown bucket
     startedAt: utc("started_at").notNull(),
     endedAt: utc("ended_at"),
     peakWatts: numeric("peak_watts"),
@@ -119,7 +119,7 @@ export const events = pgTable(
 export const eventConfirmations = pgTable("event_confirmations", {
   id: uuid("id").primaryKey().defaultRandom(),
   eventId: uuid("event_id").references(() => events.id),
-  confirmedApplianceId: uuid("confirmed_appliance_id").references(() => appliances.id), // null if "don't know"
+  confirmedApplianceId: uuid("confirmed_appliance_id").references(() => appliances.id, { onDelete: "set null" }), // null if "don't know"
   answer: text("answer"), // yes | no | other | unknown
   createdAt: utc("created_at").defaultNow(),
 });
