@@ -68,9 +68,12 @@ lib/
   utils.ts              cn()
   format.ts             every number/date → text conversion
   nav.ts                the sidebar's item list
-  db/                   schema.ts (Drizzle), client.ts, queries/   ← build step 2
+  db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb())
   readings/             source.ts, mock.ts                          ← build step 5
   mock/                 seed script                                 ← build step 8
+drizzle/                generated SQL migrations (npm run db:generate / db:migrate)
+drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local
+.env.example            template for .env.local (the real file is git-ignored)
 docs/                   specs and guides (see docs/README.md)
 .claude/skills/         agent workflows
 ```
@@ -138,7 +141,15 @@ create it earlier.
 
 | Variable | Where set | Used by |
 |---|---|---|
-| `DATABASE_URL` | `.env.local` locally; Vercel → Project → Settings → Environment Variables | `lib/db/client.ts` |
+| `DATABASE_URL` | `.env.local` locally; Vercel → Project → Settings → Environment Variables | `lib/db/client.ts` (`getDb()`), `drizzle.config.ts` |
+
+Use Supabase's **Transaction pooler** string (port 6543). The pooler does not
+support prepared statements, so the client is created with `prepare: false`.
+`GET /api/health` lists the tables the connected database actually has — the
+first thing to check when a screen is empty in production.
+
+Schema change workflow: edit `lib/db/schema.ts` → `npm run db:generate` →
+`npm run db:migrate` → update `docs/specs/data-contract.md` (skill `db-change`).
 
 `.env*` is git-ignored. A screen that works locally and is empty on Vercel is
 almost always a missing environment variable, not a bug.

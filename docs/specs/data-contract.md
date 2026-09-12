@@ -6,6 +6,10 @@
 Table names map to the list in [`milestones.md` §2](../source/milestones.md#2-database) — differences are noted where
 they exist.
 
+**Implemented in** [`lib/db/schema.ts`](../../lib/db/schema.ts) (Drizzle).
+Migrations live in [`drizzle/`](../../drizzle/). This document and that file
+must always agree; change both in the same commit.
+
 ## Write ownership
 
 **Rule: only one side writes each table. The other reads only.**
