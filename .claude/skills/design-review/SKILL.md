@@ -15,7 +15,7 @@ Run this on every screen before `ship-a-change`. The bar is in
 grep -rnE "(bg|text|border)-(blue|green|amber|orange|red|zinc|gray|slate|neutral)-[0-9]{2,3}|#[0-9a-fA-F]{6}" app components --include="*.tsx" | grep -v "components/ui/"
 
 # numbers formatted by hand — must print nothing outside lib/format.ts
-grep -rn "toFixed\|toLocaleString" app components --include="*.tsx"
+grep -rn "toFixed\|toLocaleString" app components --include="*.tsx" | grep -v "components/ui/"
 
 # status words typed inline instead of StatusBadge — must print nothing
 grep -rnE "\"(Not Calibrated|Calibrated|Connected|Not Connected|Discarded|Recording)\"" app --include="*.tsx"

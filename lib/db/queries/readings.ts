@@ -25,6 +25,28 @@ export async function listReadings(from: Date, to: Date): Promise<ReadingPoint[]
   return rows.map((r) => ({ ts: toIso(r.ts)!, watts: Number(r.watts) }));
 }
 
+/**
+ * Energy between two instants, in kWh, by integrating the readings (trapezoid
+ * rule on W·s). Gaps longer than 5 s contribute nothing, so an idle tab does
+ * not invent consumption. Computed in SQL so a day of 1-second rows never
+ * travels to the app.
+ */
+export async function energyKwh(from: Date, to: Date): Promise<number> {
+  const [row] = await getDb().execute<{ kwh: string | null }>(sql`
+    with pts as (
+      select ts, watts,
+             lag(ts) over (order by ts) as prev_ts,
+             lag(watts) over (order by ts) as prev_watts
+      from ${readings}
+      where ${readings.ts} >= ${from.toISOString()} and ${readings.ts} <= ${to.toISOString()}
+    )
+    select coalesce(sum((watts + prev_watts) / 2 * extract(epoch from (ts - prev_ts))) / 3600000, 0) as kwh
+    from pts
+    where prev_ts is not null and ts - prev_ts <= interval '5 seconds'
+  `);
+  return Number(row?.kwh ?? 0);
+}
+
 /* ---------- device ---------- */
 
 /** Fixed id so concurrent polls can never create two simulated devices. */

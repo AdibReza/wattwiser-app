@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { LiveTiles } from "@/components/wattwiser/live-tiles";
+import { DevLive } from "@/components/wattwiser/dev-live";
 import { MockSwitchPanel } from "@/components/wattwiser/mock-switch-panel";
 import { getMockSwitches } from "@/lib/db/queries/readings";
 
@@ -16,9 +16,7 @@ export default async function DevPage() {
         title="Demo controls"
         description="Flip simulated appliances on and off. The live power on the dashboard follows within a second."
       />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <LiveTiles />
-      </div>
+      <DevLive />
       <div className="mt-6">
         <MockSwitchPanel initial={switches} />
       </div>

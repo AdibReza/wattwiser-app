@@ -38,6 +38,7 @@ POST   /api/calibration/:id/discard
 ```
 GET    /api/readings/current              → { watts, ts, deviceConnected }
 GET    /api/readings?from=&to=            → array for charting
+GET    /api/readings/energy?from=&to=     → { kwh } integrated over the readings
 ```
 
 ### Demo controls (not part of the product API)
@@ -129,6 +130,11 @@ Newest first. `endedAt` and `durationS` are `null` while `status` is `running`.
 
 `GET /api/readings?from=&to=` returns `[{ "ts": "...", "watts": 412 }, …]`
 oldest first; defaults to the last 60 seconds, at most 24 hours per call.
+
+`GET /api/readings/energy?from=&to=` returns `{ "kwh": 2.41, "from": "...", "to": "..." }`,
+the energy between the two instants by integrating the readings. The browser
+passes its own local midnight as `from` for "Today's energy" — the wire stays
+UTC, the meaning of "today" is a display decision.
 
 ### `GET /api/breakdown`
 
