@@ -35,7 +35,7 @@ If the spec is ambiguous, ask. Do not guess and do not silently extend scope.
   column, submit bottom-right, `toast.success` on save.
 - Numbers and dates only through `lib/format.ts`. Colours only through token
   classes (`text-power`, `bg-warning-soft`). Never `bg-blue-600`, never a hex.
-- Need a shadcn component that is not installed? `npx shadcn@latest add <name>`.
+- Need a shadcn component that is not installed? `pnpm dlx shadcn@latest add <name>`.
   Never paste one in by hand, never edit `components/ui/`.
 
 **Data**

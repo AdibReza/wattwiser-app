@@ -42,3 +42,6 @@ next-env.d.ts
 
 # the template is safe to commit; only real .env files stay private
 !.env.example
+
+# npm lockfile — this project uses pnpm only
+package-lock.json

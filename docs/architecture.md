@@ -71,7 +71,7 @@ lib/
   db/                   schema.ts (Drizzle, mirrors data-contract.md), client.ts (getDb())
   readings/             source.ts, mock.ts                          ← build step 5
   mock/                 seed script                                 ← build step 8
-drizzle/                generated SQL migrations (npm run db:generate / db:migrate)
+drizzle/                generated SQL migrations (pnpm db:generate / db:migrate)
 drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local
 .env.example            template for .env.local (the real file is git-ignored)
 docs/                   specs and guides (see docs/README.md)
@@ -124,14 +124,14 @@ create it earlier.
   `style={{}}` except for values that are truly dynamic (a bar width).
 - Colours through token classes only (`bg-primary`, `text-warning`). Raw
   Tailwind colours (`bg-blue-600`) are forbidden outside `globals.css`.
-- shadcn components are installed with `npx shadcn@latest add`, never pasted
+- shadcn components are installed with `pnpm dlx shadcn@latest add`, never pasted
   from the web and never modified. Wrap them in `components/wattwiser/` if a
   product-specific variant is needed.
 
 ### Quality gates (in this order, every change)
 
-1. `npm run build` is green — Vercel runs the same build.
-2. `npx eslint .` reports nothing.
+1. `pnpm build` is green — Vercel runs the same build.
+2. `pnpm exec eslint .` reports nothing.
 3. The screen is checked on localhost against `docs/design-system.md` §5–7.
 4. Commit as `<emoji> <type>: <message>`, push, confirm Vercel green, open the live URL.
 
@@ -148,8 +148,8 @@ support prepared statements, so the client is created with `prepare: false`.
 `GET /api/health` lists the tables the connected database actually has — the
 first thing to check when a screen is empty in production.
 
-Schema change workflow: edit `lib/db/schema.ts` → `npm run db:generate` →
-`npm run db:migrate` → update `docs/specs/data-contract.md` (skill `db-change`).
+Schema change workflow: edit `lib/db/schema.ts` → `pnpm db:generate` →
+`pnpm db:migrate` → update `docs/specs/data-contract.md` (skill `db-change`).
 
 `.env*` is git-ignored. A screen that works locally and is empty on Vercel is
 almost always a missing environment variable, not a bug.

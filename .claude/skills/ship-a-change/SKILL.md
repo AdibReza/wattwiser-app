@@ -16,7 +16,7 @@ Run the production build, not just the dev server — the dev server tolerates
 errors Vercel will reject.
 
 ```bash
-npm run build
+pnpm build
 ```
 
 **Green:** ends with a route list and no red text.
@@ -26,7 +26,7 @@ machine — you will only wait five minutes to be told the same thing.
 ## 2. Test on localhost
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open the page that changed and check the thing that changed actually works. Then

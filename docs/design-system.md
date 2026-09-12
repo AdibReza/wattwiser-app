@@ -110,7 +110,7 @@ button · card · badge · input · label · textarea · select · radio-group �
 switch · field · dialog · alert-dialog · alert · sheet · table · separator ·
 skeleton · progress · tooltip · sonner (toasts)
 
-Add more with `npx shadcn@latest add <name>`. Do not re-implement anything on
+Add more with `pnpm dlx shadcn@latest add <name>`. Do not re-implement anything on
 this list by hand.
 
 ### WattWiser composites (in `components/wattwiser/` and `components/layout/`)

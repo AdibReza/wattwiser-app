@@ -34,6 +34,9 @@ Details: `docs/product-brief.md`. Table-by-table write ownership:
   `app/globals.css`; the rules are in `docs/design-system.md`. No other UI
   library, no CSS-in-JS, no hand-edited files in `components/ui/`.
 - **Supabase** (PostgreSQL) for the database.
+- **pnpm only** (version pinned in `package.json` and `mise.toml`). Never run
+  `npm install` or `npx`: a second lockfile breaks the Vercel build. Use
+  `pnpm add`, `pnpm install`, `pnpm dlx`.
 - **No authentication** in this MVP. Single household, one shared dataset.
   No login or register screens.
 - **The data side's output is mocked.** The web side seeds `readings`, `events`
