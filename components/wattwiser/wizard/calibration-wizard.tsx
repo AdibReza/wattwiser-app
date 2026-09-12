@@ -92,6 +92,32 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     }
   }
 
+  /** Step 4 → 5: ended_at is written by the server, in UTC. */
+  async function finishRun() {
+    if (!session) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/calibration/${session.id}/finish`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Couldn't save the run.");
+      const done = (await res.json()) as { endedAt: string | null; status: CalibrationSession["status"]; durationS: number | null };
+      setSession({ ...session, endedAt: done.endedAt, status: done.status, durationS: done.durationS });
+      setStep(5);
+      toast.success("Calibration saved");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save the run. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** "Run again": back to step 1 with no session — the next I'm ready creates a fresh row. */
+  function resetRun() {
+    setSession(null);
+    setError(null);
+    setStep(1);
+  }
+
   const cancel =
     session && step >= 2 && step <= 4 ? (
       <AlertDialog>
@@ -230,11 +256,12 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
         note={copy.note}
         cancel={cancel}
         footer={
-          <Button onClick={() => setStep(5)} disabled={busy}>
-            {copy.button}
+          <Button onClick={finishRun} disabled={busy}>
+            {busy ? "Saving…" : copy.button}
           </Button>
         }
       >
+        {errorBox}
         <div className="flex items-center justify-between text-sm">
           <StatusBadge status="recording" />
           <span className="tabular text-muted-foreground" aria-live="polite">
@@ -258,20 +285,38 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     );
   }
 
-  /* ---------- step 5: next stage ---------- */
+  /* ---------- step 5 ---------- */
   return (
     <WizardShell
       step={5}
-      title="Coming next"
-      help="Step 5 arrives in the next stage. The run is still recording."
-      cancel={cancel}
-      footer={
-        <Button variant="outline" onClick={() => setStep(4)}>
-          Back to step 4
+      title={copy.title}
+      help={copy.help}
+      cancel={
+        <Button variant="ghost" size="sm" onClick={goToAppliance}>
+          Close
         </Button>
       }
+      footer={
+        <>
+          <Button variant="outline" onClick={goToAppliance}>
+            I&apos;m done
+          </Button>
+          <Button onClick={resetRun}>{copy.button}</Button>
+        </>
+      }
     >
-      <StatusBadge status="recording" />
+      <div className="flex items-center justify-between rounded-lg border bg-success-soft/60 p-4 text-sm">
+        <div>
+          <p className="font-medium">Run saved for {appliance.name}</p>
+          <p className="tabular text-muted-foreground">
+            Recorded for {formatDuration(session?.durationS)} · baseline {formatWatts(session?.baselineW)}
+          </p>
+        </div>
+        <StatusBadge status="complete" />
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Each run teaches WattWiser a little more about what {appliance.name} looks like. You can come back and add runs any time.
+      </p>
     </WizardShell>
   );
 }

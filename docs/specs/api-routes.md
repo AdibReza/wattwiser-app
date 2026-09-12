@@ -122,6 +122,26 @@ Entertainment | Other; `applianceClass` simple | multi_stage | variable_load).
 
 Newest first. `endedAt` and `durationS` are `null` while `status` is `running`.
 
+### `GET /api/calibration/:id`
+
+```json
+{
+  "id": "...",
+  "applianceId": "...",
+  "startedAt": "2026-09-12T05:35:47.711Z",
+  "endedAt": "2026-09-12T05:38:12.004Z",
+  "status": "completed",
+  "baselineW": 352,
+  "durationS": 144
+}
+```
+
+`POST /api/calibration/start` takes `{ applianceId, baselineW }` and returns
+`201` with the same shape plus `sessionId`. **It first marks any still-running
+session for that appliance as `discarded`** (a tab closed mid-run), so one
+appliance never has two running rows. `finish` and `discard` only act on a
+`running` session; calling them again returns the row unchanged.
+
 ### `GET /api/readings/current`
 
 ```json
