@@ -11,16 +11,26 @@ looks necessary, raise it with the user rather than working around it.
 | **Supabase (PostgreSQL)** | One database, shared by both sides. It is the entire integration surface. |
 | **Vercel for deployment** | No Docker, no self-hosting, no container orchestration. |
 | **Claude Code as the AI tool** | Instructions are written as ready-to-paste prompts, not as tasks to describe from scratch. |
-| **No authentication in this MVP** | Single household, one shared dataset. No login or register screens, no user table, no session handling. |
+| **Email + password authentication** | Better Auth on the same Postgres. Sessions in the database. `/login` and `/signup` are the only public screens. |
+| **One household per account** | Every table carries `household_id`. Nobody can read or change another account's data, enforced in the query layer. |
 | **The data side's output is mocked** | The web side seeds `readings`, `events` and `appliance_signatures` so every screen works end to end before the pipeline exists. |
 | **A working input UI is the primary goal** | Household profile, appliance inventory and guided calibration come before polish on the dashboard. |
 
-### Why no authentication
+### Why authentication, after starting without it
 
-Going multi-household later means adding a `household_id` foreign key to the
-other tables — not rebuilding them. The schema is already shaped for it. Adding
-auth now would cost login screens, session handling and row-level security for
-a single household that shares one dataset anyway.
+This MVP deliberately shipped without accounts: one household, one shared
+dataset, and a schema shaped so that going multi-household later meant *adding a
+`household_id` foreign key, not rebuilding*. That is exactly what happened.
+
+What it cost, when the time came: `household_id` on eight tables, a `householdId`
+first argument on every query function, one guard at the top of every route
+handler, and two screens. No table was redesigned.
+
+**Row-level security is not used.** The app connects to Postgres as the owner
+through Drizzle, not as a Supabase `authenticated` role, so RLS would never
+engage. Scoping lives in the query layer instead, which is why every function in
+`lib/db/queries/*` takes `householdId` explicitly rather than reading it from
+ambient context — a missing scope is then a build error, not a silent leak.
 
 ## Cut from this MVP
 
@@ -43,7 +53,9 @@ matching against calibrated signatures. That is the data side's whole scope for
 this build.
 
 **Also cut**
-- Hand-rolled complex auth
+- Hand-rolled auth (Better Auth is a library, not a hand-rolled scheme)
+- Social / SSO sign-in, password reset emails, email verification — no mail
+  server exists in this MVP
 - Any per-appliance metering hardware
 
 ## In scope, but only if time allows

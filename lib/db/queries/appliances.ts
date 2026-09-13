@@ -15,12 +15,16 @@ const { appliances, calibrationSessions } = schema;
  * Table names are written out on purpose: inside a correlated subquery Drizzle
  * emits bare column names, and "id" would then mean the session's id.
  */
+// No household filter needed here: it is correlated on appliances.id, and the
+// outer query is already scoped, so it can only ever see this household's runs.
 const completedRuns = sql<number>`(
   select count(*)::int from calibration_sessions cs
   where cs.appliance_id = appliances.id and cs.status = 'completed'
 )`;
 
-type Row = typeof appliances.$inferSelect & { calibrationCount: number };
+// householdId is deliberately not in the projection — it is a scoping key, never
+// part of the payload, and must not reach the wire.
+type Row = Omit<typeof appliances.$inferSelect, "householdId"> & { calibrationCount: number };
 
 function toSummary(r: Row): ApplianceSummary {
   return {
@@ -60,33 +64,50 @@ const selectWithCount = () =>
     })
     .from(appliances);
 
-export async function listAppliances(): Promise<ApplianceSummary[]> {
-  const rows = await selectWithCount().orderBy(asc(appliances.name));
+export async function listAppliances(householdId: string): Promise<ApplianceSummary[]> {
+  const rows = await selectWithCount().where(eq(appliances.householdId, householdId)).orderBy(asc(appliances.name));
   return rows.map(toSummary);
 }
 
-export async function getAppliance(id: string): Promise<Appliance | null> {
-  const [row] = await selectWithCount().where(eq(appliances.id, id)).limit(1);
+/**
+ * An id from another household matches nothing and comes back null, which the
+ * route handler turns into a 404. That is the ownership check — there is no
+ * separate one anywhere.
+ */
+export async function getAppliance(householdId: string, id: string): Promise<Appliance | null> {
+  const [row] = await selectWithCount()
+    .where(and(eq(appliances.householdId, householdId), eq(appliances.id, id)))
+    .limit(1);
   return row ? toAppliance(row) : null;
 }
 
-export async function createAppliance(input: ApplianceInput): Promise<Appliance> {
-  const [row] = await getDb().insert(appliances).values(clean(input)).returning({ id: appliances.id });
-  return (await getAppliance(row.id))!;
+export async function createAppliance(householdId: string, input: ApplianceInput): Promise<Appliance> {
+  const [row] = await getDb()
+    .insert(appliances)
+    .values({ ...clean(input), householdId })
+    .returning({ id: appliances.id });
+  return (await getAppliance(householdId, row.id))!;
 }
 
-export async function updateAppliance(id: string, input: ApplianceInput): Promise<Appliance | null> {
-  const updated = await getDb().update(appliances).set(clean(input)).where(eq(appliances.id, id)).returning({ id: appliances.id });
-  return updated.length ? getAppliance(id) : null;
+export async function updateAppliance(householdId: string, id: string, input: ApplianceInput): Promise<Appliance | null> {
+  const updated = await getDb()
+    .update(appliances)
+    .set(clean(input))
+    .where(and(eq(appliances.householdId, householdId), eq(appliances.id, id)))
+    .returning({ id: appliances.id });
+  return updated.length ? getAppliance(householdId, id) : null;
 }
 
 /** Calibration runs and the signature go with it (FK cascade); events keep their rows and become Unknown. */
-export async function deleteAppliance(id: string): Promise<boolean> {
-  const deleted = await getDb().delete(appliances).where(eq(appliances.id, id)).returning({ id: appliances.id });
+export async function deleteAppliance(householdId: string, id: string): Promise<boolean> {
+  const deleted = await getDb()
+    .delete(appliances)
+    .where(and(eq(appliances.householdId, householdId), eq(appliances.id, id)))
+    .returning({ id: appliances.id });
   return deleted.length > 0;
 }
 
-export async function listCalibrations(applianceId: string): Promise<CalibrationSummary[]> {
+export async function listCalibrations(householdId: string, applianceId: string): Promise<CalibrationSummary[]> {
   const rows = await getDb()
     .select({
       id: calibrationSessions.id,
@@ -96,7 +117,7 @@ export async function listCalibrations(applianceId: string): Promise<Calibration
       durationS: sql<number | null>`extract(epoch from (${calibrationSessions.endedAt} - ${calibrationSessions.startedAt}))::int`,
     })
     .from(calibrationSessions)
-    .where(and(eq(calibrationSessions.applianceId, applianceId)))
+    .where(and(eq(calibrationSessions.householdId, householdId), eq(calibrationSessions.applianceId, applianceId)))
     .orderBy(desc(calibrationSessions.startedAt));
   return rows.map((r) => ({
     id: r.id,
@@ -108,13 +129,14 @@ export async function listCalibrations(applianceId: string): Promise<Calibration
 }
 
 /** Dashboard tile: "6 appliances · 4 calibrated". */
-export async function countAppliances(): Promise<{ total: number; calibrated: number }> {
+export async function countAppliances(householdId: string): Promise<{ total: number; calibrated: number }> {
   const [row] = await getDb()
     .select({
       total: sql<number>`count(*)::int`,
       calibrated: sql<number>`count(*) filter (where ${completedRuns} > 0)::int`,
     })
-    .from(appliances);
+    .from(appliances)
+    .where(eq(appliances.householdId, householdId));
   return row ?? { total: 0, calibrated: 0 };
 }
 

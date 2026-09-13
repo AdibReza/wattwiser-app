@@ -15,7 +15,7 @@ export type MonthEvent = {
 };
 
 /** Every detected run that STARTED inside the month. Rows with a null appliance are the Unknown bucket. */
-export async function eventsInRange(from: Date, to: Date): Promise<MonthEvent[]> {
+export async function eventsInRange(householdId: string, from: Date, to: Date): Promise<MonthEvent[]> {
   const rows = await getDb()
     .select({
       id: events.id,
@@ -28,7 +28,13 @@ export async function eventsInRange(from: Date, to: Date): Promise<MonthEvent[]>
     })
     .from(events)
     .leftJoin(appliances, eq(appliances.id, events.applianceId))
-    .where(and(gte(events.startedAt, from.toISOString()), lt(events.startedAt, to.toISOString())))
+    .where(
+      and(
+        eq(events.householdId, householdId),
+        gte(events.startedAt, from.toISOString()),
+        lt(events.startedAt, to.toISOString())
+      )
+    )
     .orderBy(desc(events.startedAt));
 
   return rows.map((r) => ({
@@ -43,9 +49,12 @@ export async function eventsInRange(from: Date, to: Date): Promise<MonthEvent[]>
 }
 
 /** Months that actually have events, newest first, as "YYYY-MM" in UTC terms (close enough to pick from). */
-export async function monthsWithEvents(): Promise<string[]> {
+export async function monthsWithEvents(householdId: string): Promise<string[]> {
   const rows = await getDb().execute<{ month: string }>(sql`
-    select distinct to_char(${events.startedAt}, 'YYYY-MM') as month from ${events} order by month desc limit 24
+    select distinct to_char(${events.startedAt}, 'YYYY-MM') as month
+      from ${events}
+     where ${events.householdId} = ${householdId}
+     order by month desc limit 24
   `);
   return rows.map((r) => r.month);
 }

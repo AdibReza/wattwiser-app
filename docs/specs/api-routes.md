@@ -3,6 +3,45 @@
 All served by **Next.js route handlers. No FastAPI.** [`website-details.md` §6](../source/website-details.md#6-apis-the-website-needs-before-shelly)
 listed these against a FastAPI backend; the paths are kept, the host changed.
 
+## Authentication and access control
+
+**Every route below requires a signed-in session.** Two routes do not:
+`/api/auth/*` (Better Auth's own endpoints) and `GET /api/health` (how a deploy
+is verified; it reports table names only, never data).
+
+| Situation | Response |
+|---|---|
+| No session, or an expired one | `401 { "error": "Sign in to continue." }` |
+| A valid session, but the id belongs to another household | `404` |
+
+**404, not 403, is deliberate.** A 403 would confirm that the id exists, which
+lets a stranger enumerate other households' rows. Because every query is filtered
+by `household_id`, another household's id simply matches nothing and falls into
+the handler's existing "not found" branch — there is no separate ownership check
+to forget.
+
+Handlers start with the guard from `lib/api.ts`:
+
+```ts
+const { householdId, response } = await requireApiHousehold();
+if (response) return response;
+```
+
+### Auth
+
+```
+POST   /api/auth/sign-up/email      body: { email, password, name }
+POST   /api/auth/sign-in/email      body: { email, password }
+POST   /api/auth/sign-out
+GET    /api/auth/get-session
+```
+
+Served by Better Auth through `app/api/auth/[...all]/route.ts`. Screens call
+`lib/auth-client.ts` rather than these paths directly. Errors come back as
+`{ message, code }`; `lib/validation/auth.ts` turns the codes into plain
+sentences. Sign-in gives the same message for a wrong password and an unknown
+address, so the endpoint cannot be used to discover who has an account.
+
 ## Route list
 
 ### Household
@@ -46,7 +85,20 @@ GET    /api/readings/energy?from=&to=     → { kwh } integrated over the readin
 ```
 GET    /api/dev/switches                  → [{ id, label, watts, isOn }]
 PATCH  /api/dev/switches/:id              body: { isOn }
+GET    /api/dev/demo-data                 → { loaded, loadedAt }
+POST   /api/dev/demo-data                 → 201 { appliances, events, readings, kwh }
+DELETE /api/dev/demo-data                 → 204
 ```
+
+Each household has its own four simulated switches, created the first time it
+opens `/dev`.
+
+`POST /api/dev/demo-data` loads 30 days of demo data into the signed-in
+household — about 44,000 readings, so the route sets `maxDuration = 60`. It is
+`409` if that household already has demo data. `DELETE` removes it again: every
+tagged row (`5eed0000-…`) plus the readings inside the recorded window, leaving
+the household profile and anything added by hand alone. **A new account is never
+seeded automatically** — someone has to ask for it.
 
 ### Events and breakdown
 
@@ -63,7 +115,8 @@ GET    /api/breakdown?month=2026-09       → per-appliance aggregation + cost
 
 ### `GET /api/household`
 
-`null` before first setup, otherwise:
+`null` before the setup form has been saved (the row exists from signup; a null
+`label` is what "not set up yet" means), otherwise:
 
 ```json
 {

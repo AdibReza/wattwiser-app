@@ -43,13 +43,17 @@ components/                     app/api/<route>/route.ts   route handlers
 ## 2. Folder map
 
 ```
+proxy.ts                cookie-only redirect for signed-out visitors (NOT a security boundary)
 app/
   layout.tsx            root: font, tooltip provider, toaster
   page.tsx              redirects to /dashboard
   not-found.tsx         styled 404
   globals.css           design tokens (docs/design-system.md)
+  (auth)/               public — no shell, no session required
+    layout.tsx, login/page.tsx, signup/page.tsx
   (app)/                route group — every customer screen, wrapped in AppShell
-    layout.tsx
+    layout.tsx          validates the session; redirects to /login
+    loading.tsx         skeleton while that check runs
     dashboard/page.tsx
     appliances/page.tsx, new/page.tsx, [id]/page.tsx
     calibration/[id]/page.tsx
@@ -64,13 +68,19 @@ app/
     readings/current/route.ts, route.ts
     events/route.ts, [id]/confirm/route.ts
     breakdown/route.ts
+    auth/[...all]/route.ts          Better Auth's endpoints (public)
+    dev/demo-data/route.ts          load / remove the demo dataset
 components/
   ui/                   shadcn/ui — installed by CLI, never hand-edited
-  layout/               AppShell, SidebarNav, PageHeader
+  auth/                 AuthShell, AuthForm — the sign-in screens
+  layout/               AppShell, SidebarNav, PageHeader, Brand, UserMenu
   wattwiser/            StatCard, StatusBadge, EmptyState, (later) PowerChart, WizardStep…
 lib/
   utils.ts              cn()
-  api.ts                route-handler helpers: parseBody, badRequest, notFound, serverError
+  auth.ts               Better Auth server instance (email + password, DB sessions)
+  auth-client.ts        the browser half: signIn, signUp, signOut
+  session.ts            requireHousehold() / getSession() for server components
+  api.ts                route-handler helpers: parseBody, requireApiHousehold, badRequest, notFound, unauthorized, serverError
   format.ts             every number/date → text conversion
   tariff.ts             kWh → dollars (peak window, timezone, tier rules)
   tariff.check.ts       PASS/FAIL checks for the cost maths (pnpm check:maths)
@@ -80,7 +90,8 @@ lib/
     queries/            one file per area: household.ts, appliances.ts, readings.ts …
   validation/           zod schemas + option lists shared by forms and routes
   readings/             source.ts (interface), mock.ts (generator; shelly.ts later)
-  mock/                 seed.ts — 30 days of demo data (just seed / seed-reset / seed-clear)
+  mock/                 demo-data.ts — the 30-day dataset, shared by the CLI and the /dev button
+                        seed.ts — the `pnpm db:seed` command line
 drizzle/                generated SQL migrations (pnpm db:generate / db:migrate)
 drizzle.config.ts       drizzle-kit config; reads DATABASE_URL from .env.local, local-only guard
 supabase/config.toml    local Supabase (Docker) — ports 553xx, db + studio only
@@ -107,7 +118,7 @@ create it earlier.
 | database columns | snake_case | `appliance_class` |
 | JSON on the wire | camelCase | `applianceClass` |
 | route segments | match the screen map exactly | `/appliances/[id]` |
-| environment variables | SCREAMING_SNAKE, read only in `lib/db/client.ts` | `DATABASE_URL` |
+| environment variables | SCREAMING_SNAKE | `DATABASE_URL`, `BETTER_AUTH_SECRET` |
 
 ### Components
 
@@ -157,6 +168,54 @@ create it earlier.
 |---|---|---|
 | your Mac (`just run`, `just migrate`) | local Supabase in Docker, port 55322 | `.env.local` |
 | Vercel (build and runtime) | hosted Supabase, Transaction pooler, port 6543 | Vercel → Settings → Environment Variables |
+
+### What a signed-in request costs
+
+Better Auth reads `session` and then `user` — **two separate round trips**, not a
+join (`advanced.database.joins` is off by default, and `lib/db/schema.ts`
+declares no `relations()`). On top of that the app needs the caller's household.
+Three queries before a handler does any of its own work, on an endpoint
+(`/api/readings/current`) that every open tab polls once a second.
+
+Both costs are removed rather than paid:
+
+| | How |
+|---|---|
+| the two auth queries | `session.cookieCache` in `lib/auth.ts` — the signed session rides in a cookie for 60s, and `getSession` returns without touching Postgres |
+| the household query | a `Map` in `lib/session.ts` — `household.user_id` is unique and set once at sign-up, so the mapping can never go stale |
+
+Measured locally, `/api/appliances` went from **4 queries per request to 1**
+(confirmed with `pg_stat_statements`, not inferred from latency). Locally that is
+only ~2ms because Postgres is on the same machine; on Vercel, where each round
+trip crosses the network to the Supabase pooler, it is the difference that
+matters.
+
+The trade: a session revoked **from another device** keeps working here for up to
+60 seconds. Signing out in this browser is immediate — it clears the cookie. Any
+genuinely sensitive route added later must ask for
+`query: { disableCookieCache: true }`.
+
+### Environment variables
+
+| Variable | Local (`.env.local`) | Vercel |
+|---|---|---|
+| `DATABASE_URL` | local Supabase, port 55322 | hosted Supabase pooler, port 6543 |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | **a different value**, set in Settings → Environment Variables |
+| `BETTER_AUTH_URL` | `http://localhost:3000` | **leave unset** — see below |
+
+`BETTER_AUTH_SECRET` signs and encrypts the session cookie. Local and Vercel must
+**not** share one: a shared secret means a cookie minted on a laptop is valid on
+the live site. **Set it on Vercel before the first deploy** — without it the build
+still succeeds and the site still serves `/login`, but every sign-in returns 500,
+so the usual "is the build green?" check will not catch it.
+
+Leave `BETTER_AUTH_URL` unset on Vercel. Better Auth then derives the origin from
+the request, so production *and* every preview deployment work. Pinning it to the
+production domain makes sign-in fail the CSRF check on preview URLs.
+
+Check that `DATABASE_URL` on Vercel is scoped to **Production**. Set to "All
+Environments", every preview deployment would run `drizzle-kit migrate` against
+the production database during its build.
 
 The hosted connection string is **never** written to a file on this machine.
 `lib/db/target.ts` enforces it: any attempt to open a non-local connection

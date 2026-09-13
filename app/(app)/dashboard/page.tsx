@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { ClipboardCheck, Plus, Settings } from "lucide-react";
+import { ClipboardCheck, Plus, Settings, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { DashboardLive } from "@/components/wattwiser/dashboard-live";
 import { StartCalibrationDialog } from "@/components/wattwiser/start-calibration-dialog";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { getHousehold } from "@/lib/db/queries/household";
+import { demoLoadedAt, getHousehold } from "@/lib/db/queries/household";
 import { listAppliances } from "@/lib/db/queries/appliances";
 import { pendingCount } from "@/lib/db/queries/events";
+import { requireHousehold } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,13 @@ export const dynamic = "force-dynamic";
  * (mock generator for now) through one shared poll in DashboardLive.
  */
 export default async function DashboardPage() {
-  const [household, appliances, pending] = await Promise.all([getHousehold(), listAppliances(), pendingCount()]);
+  const householdId = await requireHousehold();
+  const [household, appliances, pending, demoAt] = await Promise.all([
+    getHousehold(householdId),
+    listAppliances(householdId),
+    pendingCount(householdId),
+    demoLoadedAt(householdId),
+  ]);
   const counts = { total: appliances.length, calibrated: appliances.filter((a) => a.isCalibrated).length };
 
   return (
@@ -36,6 +43,23 @@ export default async function DashboardPage() {
           </div>
         }
       />
+
+      {/* A brand-new home has nothing to show. Point at the demo rather than
+          leaving someone staring at a screen full of dashes. */}
+      {appliances.length === 0 && demoAt === null ? (
+        <Alert className="mb-6">
+          <Wrench />
+          <AlertTitle>Nothing to show yet</AlertTitle>
+          <AlertDescription>
+            Add the appliances you own, or load a month of demo data to see how WattWiser works.
+          </AlertDescription>
+          <AlertAction>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dev">Load demo data</Link>
+            </Button>
+          </AlertAction>
+        </Alert>
+      ) : null}
 
       {!household ? (
         <Alert className="mb-6">

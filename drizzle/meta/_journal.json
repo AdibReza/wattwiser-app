@@ -22,6 +22,20 @@
       "when": 1789190528635,
       "tag": "0002_mock_switches",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789288101264,
+      "tag": "0003_add_auth_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789288285494,
+      "tag": "0004_add_household_scope",
+      "breakpoints": true
     }
   ]
 }

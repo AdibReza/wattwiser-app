@@ -37,10 +37,17 @@ Details: `docs/product-brief.md`. Table-by-table write ownership:
 - **pnpm only** (version pinned in `package.json` and `mise.toml`). Never run
   `npm install` or `npx`: a second lockfile breaks the Vercel build. Use
   `pnpm add`, `pnpm install`, `pnpm dlx`.
-- **No authentication** in this MVP. Single household, one shared dataset.
-  No login or register screens.
-- **The data side's output is mocked.** The web side seeds `readings`, `events`
-  and `appliance_signatures` itself so every screen works end to end.
+- **Email + password authentication**, via Better Auth on the same Postgres.
+  Sessions live in the database; `lib/auth.ts` is the only configuration.
+  Every screen requires a session; `/login` and `/signup` are the only public
+  pages, plus `/api/auth/*` and `/api/health`.
+- **One household per account.** Every data table carries `household_id`, and
+  every query in `lib/db/queries/*` takes `householdId` as its first argument.
+  A row belonging to someone else is returned as **404, never 403**.
+- **The data side's output is mocked.** The web side can seed `readings`,
+  `events` and `appliance_signatures` itself so every screen works end to end.
+  A new account starts **empty** — demo data is loaded on request from `/dev`,
+  never automatically.
 - **Primary MVP goal: a working input UI** — household profile, appliance
   inventory, guided calibration — plus a dashboard and breakdown on mock data.
 
@@ -87,8 +94,11 @@ Someone who has **never written code** and works by prompting Claude Code. So:
 - **All timestamps in UTC**, everywhere, converted only at the display layer.
   Calibration matches time windows — a timezone mismatch breaks the whole
   pipeline silently, with no error message.
-- Never propose: Docker, CI/CD, microservices, Kubernetes, self-hosting,
-  hand-rolled complex auth, or ML.
+- Never propose: Docker, CI/CD, microservices, Kubernetes, self-hosting, or ML.
+- **Authorisation is enforced on the server, never only in the UI.** Route
+  handlers start with `requireApiHousehold()` from `lib/api.ts`; server
+  components use `requireHousehold()` from `lib/session.ts`. `proxy.ts` only
+  sniffs a cookie for a smoother redirect — it is not a security boundary.
 - Code layout and naming follow `docs/architecture.md`. Every status word goes
   through `StatusBadge`, every number through `lib/format.ts`, every screen
   starts with `PageHeader` and has exactly one primary action.

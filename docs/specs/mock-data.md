@@ -115,8 +115,24 @@ Deterministic: the same numbers every run. Habits are described in the
 household's local time (AEST) and **stored in UTC**. The window ends one hour
 before "now" so it never overlaps the live generator.
 
-**Removable in one step:** every seeded uuid starts with `5eed0000-`; readings
-are removed by the window's time range. Runs only against the local database
+**Always loaded into one household.** Every seeded row carries that household's
+`household_id`, so two accounts can each hold a full demo set without seeing each
+other's. `pnpm db:seed` targets the oldest household by default, or
+`--household <uuid>` to pick one.
+
+**Removable in one step:** every seeded uuid *starts* with `5eed0000-` and is
+random after that — a fixed uuid would collide the moment a second household
+loaded the demo. Readings carry no tag (`bigserial` cannot hold one), so they are
+removed by the window recorded in `household.demo_loaded_at`. That means removal
+also deletes any live readings from the same 30-day period; the confirm dialog on
+`/dev` says so.
+
+**Two callers, one implementation:** `lib/mock/demo-data.ts` holds the generator
+and the writes; `lib/mock/seed.ts` is the command line and
+`app/api/dev/demo-data/route.ts` is the button on `/dev`. A new account is never
+seeded automatically.
+
+Runs only against the local database
 (`lib/db/target.ts`). Seeding the **hosted** database is a deliberate one-off:
 
 ```

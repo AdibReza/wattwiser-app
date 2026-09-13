@@ -35,23 +35,23 @@ export function computeWatts(switches: MockSwitch[], now: Date, random = Math.ra
   return Math.max(0, Math.round(baseline + appliances + noise));
 }
 
-async function current(): Promise<CurrentReading> {
+async function current(householdId: string): Promise<CurrentReading> {
   const now = new Date();
   // Independent reads run together: every round trip to the database is paid on each poll.
-  const [switches, last] = await Promise.all([getMockSwitches(), latestReading()]);
+  const [switches, last] = await Promise.all([getMockSwitches(householdId), latestReading(householdId)]);
   const watts = computeWatts(switches, now);
 
   if (!last || now.getTime() - new Date(last.ts).getTime() >= MIN_WRITE_GAP_MS) {
-    await Promise.all([insertReading(now, watts), touchMockDevice(now)]);
+    await Promise.all([insertReading(householdId, now, watts), touchMockDevice(householdId, now)]);
     // The simulated device was marked seen just now, so it is connected; no need to ask again.
     return { watts, ts: now.toISOString(), deviceConnected: true };
   }
 
-  return { watts, ts: now.toISOString(), deviceConnected: await isDeviceConnected(now) };
+  return { watts, ts: now.toISOString(), deviceConnected: await isDeviceConnected(householdId, now) };
 }
 
-async function range(from: Date, to: Date): Promise<ReadingPoint[]> {
-  return listReadings(from, to);
+async function range(householdId: string, from: Date, to: Date): Promise<ReadingPoint[]> {
+  return listReadings(householdId, from, to);
 }
 
 export const mockSource: ReadingsSource = { current, range };

@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ConfirmQueue } from "@/components/wattwiser/confirm-queue";
 import { listAppliances } from "@/lib/db/queries/appliances";
 import { pendingConfirmations } from "@/lib/db/queries/events";
+import { requireHousehold } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Confirm" };
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
  * already looking at the screen.
  */
 export default async function ConfirmPage() {
-  const [queue, appliances] = await Promise.all([pendingConfirmations(), listAppliances()]);
+  const householdId = await requireHousehold();
+  const [queue, appliances] = await Promise.all([pendingConfirmations(householdId), listAppliances(householdId)]);
   return (
     <>
       <PageHeader

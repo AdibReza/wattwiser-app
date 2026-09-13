@@ -3,7 +3,8 @@
 The web side's build target. Every screen here maps to something in
 [`website-details.md`](../source/website-details.md) or [`refined-flow-and-tasks.md`](../source/refined-flow-and-tasks.md).
 
-**No login screen — this MVP has no authentication.**
+**Every screen below requires a signed-in account** and shows only that
+account's household. The two public screens are `/login` and `/signup`.
 
 **Visual rule for every screen: simple and modern. Ugly is not acceptable.**
 Clean spacing, one clear primary action per screen, readable numbers.
@@ -12,7 +13,9 @@ Clean spacing, one clear primary action per screen, readable numbers.
 
 | Route | Purpose | Build step |
 |---|---|---|
-| `/` | redirects to `/dashboard` | 1 |
+| `/login` | email + password sign-in | 11 |
+| `/signup` | create an account | 11 |
+| `/` | redirects to `/dashboard`, or to `/login` when signed out | 1 |
 | `/setup` | household profile (first-run questionnaire) | 3 |
 | `/dashboard` | live power, today's energy, device status, chart | 6 |
 | `/appliances` | inventory list | 4 |
@@ -219,3 +222,52 @@ waiting.
 on and off so the dashboard and wizard charts actually move during a live demo.
 
 Backed by the mock generator — [`mock-data.md`](./mock-data.md).
+
+---
+
+## 9. Sign in and sign up
+
+`/login` and `/signup` are the only screens outside the sidebar shell. They
+share one component (`components/auth/auth-form.tsx`, `mode="login" | "signup"`)
+inside a centred card (`components/auth/auth-shell.tsx`) with the WattWiser mark
+above it — the same proportions as the calibration wizard, narrower.
+
+| | `/login` | `/signup` |
+|---|---|---|
+| Title | Welcome back | Create your account |
+| Description | Sign in to see where your electricity goes. | It takes about a minute. Your home, your data. |
+| Submit | Sign in → Signing in… | Create account → Creating account… |
+| Footer link | New here? Create an account | Already have an account? Sign in |
+
+**Rules these screens must keep**
+
+- `autocomplete="email"` and `current-password` / `new-password`, and **paste is
+  never blocked**. A password manager has to be able to fill them (WCAG 2.2 AA,
+  Accessible Authentication).
+- A show/hide password button, with an `aria-label` — it is icon-only.
+- Field errors below the field and linked with `aria-describedby`, **plus** a
+  form-level `Alert variant="destructive"` with `role="alert"` that takes focus
+  after a failed submit. Both, never one instead of the other.
+- Sign-in says "That email and password don't match" whichever was wrong, so the
+  screen cannot be used to find out who has an account.
+- One primary action, full width. The link to the other screen is a text link.
+
+**After signing in** the person lands on `?next=` if it is one of our own paths,
+otherwise `/dashboard`. A `next` pointing anywhere off-site is ignored
+(`safeNext` in `lib/validation/auth.ts`).
+
+**Signing out** is at the foot of the sidebar, under the account's email address:
+`variant="outline"`, never a nav item.
+
+## 10. A brand-new account
+
+A new account has a household but nothing in it. Demo data is **never** loaded
+automatically. Instead:
+
+- `/dashboard` shows **Nothing to show yet** — "Add the appliances you own, or
+  load a month of demo data to see how WattWiser works" — with a secondary
+  button to `/dev`.
+- `/dev` has a **Demo data** card: *Load demo data* opens a confirm dialog
+  explaining what will be added; once loaded the same card offers *Remove demo
+  data* (destructive, also confirmed), which says plainly that meter readings
+  from that period go too.

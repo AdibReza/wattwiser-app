@@ -6,13 +6,14 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/wattwiser/empty-state";
 import { ApplianceList } from "@/components/wattwiser/appliance-list";
 import { listAppliances } from "@/lib/db/queries/appliances";
+import { requireHousehold } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Appliances" };
 export const dynamic = "force-dynamic";
 
 /** docs/specs/screens.md §3 — the inventory. */
 export default async function AppliancesPage() {
-  const appliances = await listAppliances();
+  const appliances = await listAppliances(await requireHousehold());
   const calibrated = appliances.filter((a) => a.isCalibrated).length;
 
   return (

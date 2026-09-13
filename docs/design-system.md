@@ -9,11 +9,11 @@ green number for live power, orange for "Not Calibrated".
 **The rule above every other rule: simple and modern. Ugly is not acceptable.**
 
 > The figures show Login, Register, Logout, a Settings page and a separate
-> Calibration History page. Those are cut (see
-> [`scope-and-decisions.md`](./scope-and-decisions.md)). Settings became
-> `/setup`; calibration history lives on `/appliances/[id]`; there is no auth.
-> The *style* of the figures is kept, the *screen list* comes from
-> [`specs/screens.md`](./specs/screens.md).
+> Calibration History page. **Login, Register and Logout are built** — see
+> [`specs/screens.md` §9](./specs/screens.md). Settings became `/setup`;
+> the separate Calibration History page is still cut, that content lives on
+> `/appliances/[id]`. The *style* of the figures is kept, the *screen list*
+> comes from [`specs/screens.md`](./specs/screens.md).
 
 ---
 
@@ -101,6 +101,10 @@ is the frame from the "Dashboard (Basic)" figure:
 - Every customer screen lives in the `app/(app)/` route group so it gets the
   shell automatically. `/calibration/[id]` also uses the shell; the wizard's
   own steps live inside the content area.
+- **`/login` and `/signup` are the exception.** They live in `app/(auth)/` and
+  deliberately have **no sidebar** — there is nothing to navigate to until you
+  are signed in. They use a centred card (`AuthShell`) with the WattWiser mark
+  above it, the same proportions as the calibration wizard but narrower.
 
 ---
 
@@ -123,6 +127,11 @@ this list by hand.
 | `StatCard` | label + big number tiles; `tone="power"` for live watts | a fixed fake number |
 | `StatusBadge` | every status word, see vocabulary below | inventing a new status string inline |
 | `EmptyState` | a screen with nothing yet; always says what to do next | a blank card |
+| `Brand` | the ⚡ WattWiser mark, in the sidebar and above the sign-in card | a second hand-built copy |
+| `AuthShell` | the centred card behind `/login` and `/signup` | wrapping app screens in it |
+| `AuthForm` | both sign-in screens, `mode="login" \| "signup"` | a second near-identical form |
+| `UserMenu` | the account email + Sign out at the foot of the sidebar | putting Sign out in `lib/nav.ts` — it is an action, not a destination |
+| `DemoDataCard` | load / remove the 30-day demo dataset, on `/dev` | loading demo data without a confirm dialog |
 
 Charts arrive at build step 6 with **Recharts** through shadcn's `chart`
 component. Series colours are `--chart-1` … `--chart-5`; series 1 is always
@@ -193,6 +202,10 @@ Required states for every screen that loads data:
 Forms: shadcn `Field` + `Input`/`Select`, labels above inputs, one column,
 the submit button at the bottom right. Validation messages are plain sentences.
 
+**One exception:** on `/login` and `/signup` the submit button spans the full
+width of the card. On a `max-w-sm` card a small right-aligned button reads as an
+afterthought, and full width is what every sign-in screen does. Nowhere else.
+
 ---
 
 ## 6. Responsive and accessible
@@ -202,6 +215,15 @@ the submit button at the bottom right. Validation messages are plain sentences.
 - Every icon-only button has `aria-label`. Every status badge is text, not just
   colour. Focus rings stay on (Tailwind `outline-ring`).
 - Minimum tap target 40px. Body text never below `text-sm`.
+
+> **Known gap, not yet fixed.** Almost nothing meets that 40px today: the shadcn
+> "nova" Button is `h-8` (32px), `size="sm"` is `h-7` (28px), `size="lg"` is
+> `h-9` (36px), and `Input` is `h-8`. The only control that does is the mobile
+> menu button in `app-shell.tsx`, which sets `size-10` on purpose. Closing this
+> means changing the default control height for every screen, so it is its own
+> deliberate piece of work — not something to fix in passing. Until then, do not
+> "make things consistent" by shrinking the menu button: it is the one that is
+> right.
 
 ---
 

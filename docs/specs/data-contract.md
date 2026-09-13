@@ -16,6 +16,7 @@ must always agree; change both in the same commit.
 
 | Table | Web side | Data side |
 |---|---|---|
+| `user`, `session`, `account`, `verification` | **write** (Better Auth) | — |
 | `household` | **write** + read | read |
 | `devices` | **write** + read | read |
 | `appliances` | **write** + read | read |
@@ -35,14 +36,35 @@ must always agree; change both in the same commit.
 
 ## Schema
 
+## Every table is scoped to a household
+
+**`household_id uuid not null references household(id) on delete cascade` is on
+every table below** except `household` itself. It is not optional and it is not
+a convenience: it is the only thing separating one account's data from another's.
+
+For the data side this means **every insert must carry `household_id`**. A row
+without one belongs to nobody and will never be read back.
+
+`readings` is the one that may surprise you: the meter is physical and
+whole-house, but each account has its own, so readings are per household too.
+
+---
+
+### `user`, `session`, `account`, `verification`
+
+Better Auth's tables (`lib/auth.ts`). Declared in `lib/db/schema.ts` so they
+migrate through the normal pipeline, but **the data side never touches them**.
+Ids are `text`, not `uuid`. Email and password hash live in `user` / `account`.
+
 ### `household`
 
-Single row for this MVP. Replaces the `Users` table in [`milestones.md`](../source/milestones.md) — no
-authentication in this scope. Going multi-household later means adding a
-`household_id` foreign key to the other tables, not rebuilding them.
+One row per account. `user_id` is the owner — unique, and nullable only so the
+one pre-authentication row could survive the migration until the first account
+claimed it (`claimOrCreateHousehold`).
 
 ```sql
 id                uuid    primary key
+user_id           text    unique references "user"(id) on delete cascade
 label             text
 occupants         int
 home_type         text        -- house | apartment | townhouse
@@ -54,9 +76,18 @@ has_battery       boolean
 has_ev            boolean
 tariff_type       text        -- flat | time_of_use | tiered
 tariff_config     jsonb       -- rates; shape depends on tariff_type
+demo_loaded_at    timestamptz -- when demo data was loaded; null = none
 created_at        timestamptz default now()
 updated_at        timestamptz
 ```
+
+> `label` doubles as the "setup finished" flag: `getHousehold()` returns `null`
+> while it is null, which is what makes the dashboard say "Finish setting up
+> your home". The row itself exists from the moment the account does.
+
+> `demo_loaded_at` records the instant the demo dataset was loaded, so removing
+> it later deletes exactly the readings it added. Readings carry no id tag —
+> `bigserial` cannot hold one — so the window is the only way to find them.
 
 `tariff_config` shape by `tariff_type` (all rates in $/kWh):
 
@@ -84,6 +115,7 @@ Dashboard's Connected / Not Connected tile.
 
 ```sql
 id                uuid    primary key
+household_id      uuid    not null references household(id) on delete cascade
 name              text                    -- "Shelly EM Gen3 - main"
 device_type       text
 last_seen_at      timestamptz             -- null or stale = Not Connected
@@ -97,6 +129,7 @@ What the household declares it owns.
 
 ```sql
 id                uuid    primary key
+household_id      uuid    not null references household(id) on delete cascade
 name              text    not null        -- "Kettle"
 category          text                    -- "Kitchen"
 appliance_class   text    not null        -- simple | multi_stage | variable_load
@@ -123,6 +156,7 @@ One row per wizard run. Multiple runs per appliance are expected — 3 to 5.
 
 ```sql
 id                uuid    primary key
+household_id      uuid    not null references household(id) on delete cascade
 appliance_id      uuid    references appliances(id)
 started_at        timestamptz not null    -- when the user confirmed "on"
 ended_at          timestamptz             -- null = still running
@@ -146,6 +180,7 @@ Derived per household. **Data side writes; web side reads for display.**
 
 ```sql
 id                uuid    primary key
+household_id      uuid    not null references household(id) on delete cascade
 appliance_id      uuid    references appliances(id)
 delta_on_w        numeric               -- power step on switch-on
 delta_off_w       numeric               -- power step on switch-off
@@ -167,6 +202,7 @@ Raw whole-house measurements. Called `Electricity Readings` in [`milestones.md`]
 
 ```sql
 id                bigserial primary key
+household_id      uuid    not null references household(id) on delete cascade
 ts                timestamptz not null
 watts             numeric not null
 volts             numeric
@@ -174,7 +210,8 @@ amps              numeric
 power_factor      numeric
 ```
 
-Index on `(ts)`.
+Index on `(household_id, ts)` — every readings query is one household over one
+time window.
 
 > [`refined-flow-and-tasks.md` §6](../source/refined-flow-and-tasks.md#6-data-processing): all individual 1-second measurements are
 > retained. Readings may be **transmitted in batches** every 5–30 seconds without
@@ -191,6 +228,7 @@ Detected appliance runs with an identification attached. This is the
 
 ```sql
 id                uuid    primary key
+household_id      uuid    not null references household(id) on delete cascade
 appliance_id      uuid    references appliances(id)   -- null = unidentified
 started_at        timestamptz not null
 ended_at          timestamptz
@@ -212,6 +250,7 @@ labelled training data.
 
 ```sql
 id                      uuid   primary key
+household_id            uuid   not null references household(id) on delete cascade
 event_id                uuid   references events(id)
 confirmed_appliance_id  uuid   references appliances(id)   -- null if "don't know"
 answer                  text   -- yes | no | other | unknown

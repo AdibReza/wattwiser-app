@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { badRequest, serverError } from "@/lib/api";
+import { badRequest, requireApiHousehold, serverError } from "@/lib/api";
 import { eventsBetween, pendingConfirmations } from "@/lib/db/queries/events";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +11,12 @@ const MAX_RANGE_MS = 92 * 24 * 60 * 60 * 1000;
  * GET /api/events?needsConfirmation=1 the confirmation queue instead
  */
 export async function GET(request: Request) {
+  const { householdId, response: authFail } = await requireApiHousehold();
+  if (authFail) return authFail;
   const { searchParams } = new URL(request.url);
   if (searchParams.get("needsConfirmation")) {
     try {
-      return NextResponse.json(await pendingConfirmations());
+      return NextResponse.json(await pendingConfirmations(householdId));
     } catch (err) {
       return serverError(err);
     }
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
   if (to <= from) return badRequest("to must be after from.");
   if (to.getTime() - from.getTime() > MAX_RANGE_MS) return badRequest("Ask for at most 3 months at a time.");
   try {
-    return NextResponse.json(await eventsBetween(from, to));
+    return NextResponse.json(await eventsBetween(householdId, from, to));
   } catch (err) {
     return serverError(err);
   }

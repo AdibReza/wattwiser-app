@@ -8,6 +8,8 @@ const { events, appliances, eventConfirmations } = schema;
 /** A guess is worth asking about below this confidence. Stored 0.0–1.0, never shown as a decimal. */
 export const NEEDS_CONFIRMATION_BELOW = 0.5;
 
+// Correlated on events.id, and every query using it already filters events by
+// household, so it can only ever see this household's answers. No filter needed.
 const noAnswerYet = sql`not exists (select 1 from ${eventConfirmations} c where c.event_id = ${events.id})`;
 
 /**
@@ -15,7 +17,7 @@ const noAnswerYet = sql`not exists (select 1 from ${eventConfirmations} c where 
  * that nobody has answered yet. Newest first — recent runs are easier to recall.
  * Unmatched runs (appliance_id is null) are deliberately not asked about.
  */
-export async function pendingConfirmations(limit = 25): Promise<PendingEvent[]> {
+export async function pendingConfirmations(householdId: string, limit = 25): Promise<PendingEvent[]> {
   const rows = await getDb()
     .select({
       id: events.id,
@@ -29,7 +31,14 @@ export async function pendingConfirmations(limit = 25): Promise<PendingEvent[]> 
     })
     .from(events)
     .innerJoin(appliances, eq(appliances.id, events.applianceId))
-    .where(and(isNotNull(events.confidence), lt(events.confidence, String(NEEDS_CONFIRMATION_BELOW)), noAnswerYet))
+    .where(
+      and(
+        eq(events.householdId, householdId),
+        isNotNull(events.confidence),
+        lt(events.confidence, String(NEEDS_CONFIRMATION_BELOW)),
+        noAnswerYet
+      )
+    )
     .orderBy(desc(events.startedAt))
     .limit(limit);
 
@@ -51,33 +60,62 @@ export async function pendingConfirmations(limit = 25): Promise<PendingEvent[]> 
 }
 
 /** How many questions are waiting. Drives the dashboard prompt. */
-export async function pendingCount(): Promise<number> {
+export async function pendingCount(householdId: string): Promise<number> {
   const [row] = await getDb()
     .select({ n: sql<number>`count(*)::int` })
     .from(events)
-    .where(and(isNotNull(events.applianceId), isNotNull(events.confidence), lt(events.confidence, String(NEEDS_CONFIRMATION_BELOW)), noAnswerYet));
+    .where(
+      and(
+        eq(events.householdId, householdId),
+        isNotNull(events.applianceId),
+        isNotNull(events.confidence),
+        lt(events.confidence, String(NEEDS_CONFIRMATION_BELOW)),
+        noAnswerYet
+      )
+    );
   return Number(row?.n ?? 0);
 }
 
 export type ConfirmResult = { status: "created" } | { status: "not-found" } | { status: "already-answered" };
 
 /** One answer per event. Answering twice is refused rather than silently overwritten. */
-export async function confirmEvent(eventId: string, answer: Answer, applianceId: string | null): Promise<ConfirmResult> {
+export async function confirmEvent(
+  householdId: string,
+  eventId: string,
+  answer: Answer,
+  applianceId: string | null
+): Promise<ConfirmResult> {
   const db = getDb();
-  const [event] = await db.select({ id: events.id, applianceId: events.applianceId }).from(events).where(eq(events.id, eventId)).limit(1);
+  // Another household's event is "not-found", which the handler turns into a 404.
+  const [event] = await db
+    .select({ id: events.id, applianceId: events.applianceId })
+    .from(events)
+    .where(and(eq(events.householdId, householdId), eq(events.id, eventId)))
+    .limit(1);
   if (!event) return { status: "not-found" };
 
   const [existing] = await db.select({ id: eventConfirmations.id }).from(eventConfirmations).where(eq(eventConfirmations.eventId, eventId)).limit(1);
   if (existing) return { status: "already-answered" };
 
   // "Yes" means the guess was right, so the confirmed appliance is the guessed one.
-  const confirmed = answer === "yes" ? event.applianceId : answer === "other" ? applianceId : null;
-  await db.insert(eventConfirmations).values({ eventId, confirmedApplianceId: confirmed, answer });
+  let confirmed = answer === "yes" ? event.applianceId : answer === "other" ? applianceId : null;
+  // "other" names an appliance from the request body — check it is actually ours
+  // before writing it, or one household could point at another's appliance.
+  if (answer === "other" && confirmed) {
+    const [owned] = await db
+      .select({ id: appliances.id })
+      .from(appliances)
+      .where(and(eq(appliances.householdId, householdId), eq(appliances.id, confirmed)))
+      .limit(1);
+    if (!owned) return { status: "not-found" };
+    confirmed = owned.id;
+  }
+  await db.insert(eventConfirmations).values({ householdId, eventId, confirmedApplianceId: confirmed, answer });
   return { status: "created" };
 }
 
 /** GET /api/events?from=&to= — the documented contract route. */
-export async function eventsBetween(from: Date, to: Date, limit = 200) {
+export async function eventsBetween(householdId: string, from: Date, to: Date, limit = 200) {
   const rows = await getDb()
     .select({
       id: events.id,
@@ -93,7 +131,13 @@ export async function eventsBetween(from: Date, to: Date, limit = 200) {
     })
     .from(events)
     .leftJoin(appliances, eq(appliances.id, events.applianceId))
-    .where(and(gte(events.startedAt, from.toISOString()), lte(events.startedAt, to.toISOString())))
+    .where(
+      and(
+        eq(events.householdId, householdId),
+        gte(events.startedAt, from.toISOString()),
+        lte(events.startedAt, to.toISOString())
+      )
+    )
     .orderBy(asc(events.startedAt))
     .limit(limit);
   return rows.map((r) => ({

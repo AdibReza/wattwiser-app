@@ -6,21 +6,32 @@ const { readings, devices, mockSwitches } = schema;
 
 export type ReadingPoint = { ts: string; watts: number };
 
-export async function latestReading(): Promise<ReadingPoint | null> {
-  const [row] = await getDb().select({ ts: readings.ts, watts: readings.watts }).from(readings).orderBy(desc(readings.ts)).limit(1);
+export async function latestReading(householdId: string): Promise<ReadingPoint | null> {
+  const [row] = await getDb()
+    .select({ ts: readings.ts, watts: readings.watts })
+    .from(readings)
+    .where(eq(readings.householdId, householdId))
+    .orderBy(desc(readings.ts))
+    .limit(1);
   return row ? { ts: toIso(row.ts)!, watts: Number(row.watts) } : null;
 }
 
 /** MVP: the mock generator writes here. The data side owns this table once the real pipeline runs. */
-export async function insertReading(ts: Date, watts: number): Promise<void> {
-  await getDb().insert(readings).values({ ts: ts.toISOString(), watts: String(watts) });
+export async function insertReading(householdId: string, ts: Date, watts: number): Promise<void> {
+  await getDb().insert(readings).values({ householdId, ts: ts.toISOString(), watts: String(watts) });
 }
 
-export async function listReadings(from: Date, to: Date): Promise<ReadingPoint[]> {
+export async function listReadings(householdId: string, from: Date, to: Date): Promise<ReadingPoint[]> {
   const rows = await getDb()
     .select({ ts: readings.ts, watts: readings.watts })
     .from(readings)
-    .where(and(gte(readings.ts, from.toISOString()), lte(readings.ts, to.toISOString())))
+    .where(
+      and(
+        eq(readings.householdId, householdId),
+        gte(readings.ts, from.toISOString()),
+        lte(readings.ts, to.toISOString())
+      )
+    )
     .orderBy(asc(readings.ts));
   return rows.map((r) => ({ ts: toIso(r.ts)!, watts: Number(r.watts) }));
 }
@@ -31,14 +42,15 @@ export async function listReadings(from: Date, to: Date): Promise<ReadingPoint[]
  * does not invent consumption, while 1-second live rows and 1-minute seeded
  * history both count. Computed in SQL so a day of rows never travels to the app.
  */
-export async function energyKwh(from: Date, to: Date): Promise<number> {
+export async function energyKwh(householdId: string, from: Date, to: Date): Promise<number> {
   const [row] = await getDb().execute<{ kwh: string | null }>(sql`
     with pts as (
       select ts, watts,
              lag(ts) over (order by ts) as prev_ts,
              lag(watts) over (order by ts) as prev_watts
       from ${readings}
-      where ${readings.ts} >= ${from.toISOString()} and ${readings.ts} <= ${to.toISOString()}
+      where ${readings.householdId} = ${householdId}
+        and ${readings.ts} >= ${from.toISOString()} and ${readings.ts} <= ${to.toISOString()}
     )
     select coalesce(sum((watts + prev_watts) / 2 * extract(epoch from (ts - prev_ts))) / 3600000, 0) as kwh
     from pts
@@ -49,27 +61,32 @@ export async function energyKwh(from: Date, to: Date): Promise<number> {
 
 /* ---------- device ---------- */
 
-/** Fixed id so concurrent polls can never create two simulated devices. */
-const MOCK_DEVICE = {
-  id: "00000000-0000-4000-8000-000000000001",
-  name: "Simulated Shelly (mock)",
-  deviceType: "mock",
-};
+/**
+ * The simulated device is now one per household, not one globally. The old fixed
+ * uuid is gone: uniqueness comes from the (household_id, device_type) index, so
+ * concurrent polls still upsert one row instead of racing to insert two.
+ */
+const MOCK_DEVICE = { name: "Simulated Shelly (mock)", deviceType: "mock" };
 /** A device is Connected if it reported within this window. */
 export const DEVICE_STALE_MS = 10_000;
 
 /** Mark the simulated device as just seen. Creates it on first call (insert-or-update, race-safe). */
-export async function touchMockDevice(now: Date): Promise<void> {
+export async function touchMockDevice(householdId: string, now: Date): Promise<void> {
   const seen = { lastSeenAt: now.toISOString(), status: "connected" };
   await getDb()
     .insert(devices)
-    .values({ ...MOCK_DEVICE, ...seen })
-    .onConflictDoUpdate({ target: devices.id, set: seen });
+    .values({ householdId, ...MOCK_DEVICE, ...seen })
+    .onConflictDoUpdate({ target: [devices.householdId, devices.deviceType], set: seen });
 }
 
 /** null or stale last_seen_at = Not Connected (docs/specs/api-routes.md). */
-export async function isDeviceConnected(now: Date): Promise<boolean> {
-  const [row] = await getDb().select({ lastSeenAt: devices.lastSeenAt }).from(devices).orderBy(desc(devices.lastSeenAt)).limit(1);
+export async function isDeviceConnected(householdId: string, now: Date): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ lastSeenAt: devices.lastSeenAt })
+    .from(devices)
+    .where(eq(devices.householdId, householdId))
+    .orderBy(desc(devices.lastSeenAt))
+    .limit(1);
   if (!row?.lastSeenAt) return false;
   return now.getTime() - new Date(row.lastSeenAt).getTime() < DEVICE_STALE_MS;
 }
@@ -86,21 +103,28 @@ const DEFAULT_SWITCHES: Omit<MockSwitch, "isOn">[] = [
   { id: "air_conditioner", label: "Air conditioner", watts: 1500 },
 ];
 
-export async function getMockSwitches(): Promise<MockSwitch[]> {
+/** Each household gets its own four switches, created the first time it opens /dev. */
+export async function getMockSwitches(householdId: string): Promise<MockSwitch[]> {
   const db = getDb();
-  let rows = await db.select().from(mockSwitches).orderBy(asc(mockSwitches.watts));
+  const mine = () =>
+    db.select().from(mockSwitches).where(eq(mockSwitches.householdId, householdId)).orderBy(asc(mockSwitches.watts));
+
+  let rows = await mine();
   if (rows.length === 0) {
-    await db.insert(mockSwitches).values(DEFAULT_SWITCHES.map((s) => ({ ...s, isOn: false }))).onConflictDoNothing();
-    rows = await db.select().from(mockSwitches).orderBy(asc(mockSwitches.watts));
+    await db
+      .insert(mockSwitches)
+      .values(DEFAULT_SWITCHES.map((s) => ({ ...s, householdId, isOn: false })))
+      .onConflictDoNothing(); // conflicts on the (household_id, id) primary key
+    rows = await mine();
   }
   return rows.map((r) => ({ id: r.id, label: r.label, watts: r.watts, isOn: r.isOn }));
 }
 
-export async function setMockSwitch(id: string, isOn: boolean): Promise<MockSwitch | null> {
+export async function setMockSwitch(householdId: string, id: string, isOn: boolean): Promise<MockSwitch | null> {
   const [row] = await getDb()
     .update(mockSwitches)
     .set({ isOn, updatedAt: sql`now()` })
-    .where(eq(mockSwitches.id, id))
+    .where(and(eq(mockSwitches.householdId, householdId), eq(mockSwitches.id, id)))
     .returning();
   return row ? { id: row.id, label: row.label, watts: row.watts, isOn: row.isOn } : null;
 }

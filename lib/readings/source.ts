@@ -9,10 +9,10 @@ export type CurrentReading = { watts: number; ts: string; deviceConnected: boole
 export type ReadingPoint = { ts: string; watts: number };
 
 export interface ReadingsSource {
-  /** The whole-house power right now. */
-  current(): Promise<CurrentReading>;
+  /** The whole-house power right now, for one household's meter. */
+  current(householdId: string): Promise<CurrentReading>;
   /** Readings between two instants (UTC), oldest first, for charts. */
-  range(from: Date, to: Date): Promise<ReadingPoint[]>;
+  range(householdId: string, from: Date, to: Date): Promise<ReadingPoint[]>;
 }
 
 export function getReadingsSource(): ReadingsSource {

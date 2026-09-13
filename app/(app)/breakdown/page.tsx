@@ -14,6 +14,7 @@ import { eventsInRange, monthsWithEvents } from "@/lib/db/queries/breakdown";
 import { getHousehold } from "@/lib/db/queries/household";
 import { formatCost, formatKwh, formatMonth, formatPercent } from "@/lib/format";
 import { monthRange, tariffLabel } from "@/lib/tariff";
+import { requireHousehold } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Breakdown" };
 export const dynamic = "force-dynamic";
@@ -24,7 +25,12 @@ export default async function BreakdownPage({ searchParams }: { searchParams: Pr
   const month = requested && monthRange(requested) ? requested : new Date().toISOString().slice(0, 7);
   const range = monthRange(month)!;
 
-  const [household, evts, months] = await Promise.all([getHousehold(), eventsInRange(range.from, range.to), monthsWithEvents()]);
+  const householdId = await requireHousehold();
+  const [household, evts, months] = await Promise.all([
+    getHousehold(householdId),
+    eventsInRange(householdId, range.from, range.to),
+    monthsWithEvents(householdId),
+  ]);
   const tariff = household?.tariff ?? null;
   const data = buildBreakdown(month, evts, tariff);
   const hasEvents = evts.length > 0;

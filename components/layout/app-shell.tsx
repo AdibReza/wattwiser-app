@@ -1,24 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Menu, Zap } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Brand } from "@/components/layout/brand";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
+import { UserMenu } from "@/components/layout/user-menu";
 
-function Brand() {
-  return (
-    <Link href="/dashboard" className="flex items-center gap-2 px-3 text-lg font-semibold tracking-tight">
-      <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-        <Zap className="size-4" aria-hidden />
-      </span>
-      WattWiser
-    </Link>
-  );
-}
-
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -27,6 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden border-r bg-sidebar md:sticky md:top-0 md:flex md:h-screen md:flex-col md:gap-6 md:self-start md:overflow-y-auto md:p-4">
         <Brand />
         <SidebarNav />
+        <UserMenu email={userEmail} />
       </aside>
 
       {/* Mobile top bar */}
@@ -38,12 +29,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Menu className="size-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-4">
+          <SheetContent side="left" className="flex w-64 flex-col p-4">
             <SheetTitle className="sr-only">Menu</SheetTitle>
             <div className="mb-6">
               <Brand />
             </div>
             <SidebarNav onNavigate={() => setOpen(false)} />
+            <UserMenu email={userEmail} />
           </SheetContent>
         </Sheet>
       </header>
