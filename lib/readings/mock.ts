@@ -37,12 +37,14 @@ export function computeWatts(switches: MockSwitch[], now: Date, random = Math.ra
 
 async function current(): Promise<CurrentReading> {
   const now = new Date();
-  const switches = await getMockSwitches();
+  // Independent reads run together: every round trip to the database is paid on each poll.
+  const [switches, last] = await Promise.all([getMockSwitches(), latestReading()]);
   const watts = computeWatts(switches, now);
 
-  const last = await latestReading();
   if (!last || now.getTime() - new Date(last.ts).getTime() >= MIN_WRITE_GAP_MS) {
     await Promise.all([insertReading(now, watts), touchMockDevice(now)]);
+    // The simulated device was marked seen just now, so it is connected; no need to ask again.
+    return { watts, ts: now.toISOString(), deviceConnected: true };
   }
 
   return { watts, ts: now.toISOString(), deviceConnected: await isDeviceConnected(now) };
