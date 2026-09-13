@@ -45,3 +45,5 @@ next-env.d.ts
 
 # npm lockfile — this project uses pnpm only
 package-lock.json
+
+/docs/vi/
