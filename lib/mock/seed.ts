@@ -209,7 +209,11 @@ function* generateReadings(evts: EventSeed[]) {
 
 async function clearSeed(db: ReturnType<typeof getDb>) {
   const tag = `${SEED}-%`;
-  await db.delete(eventConfirmations).where(sql`${eventConfirmations.id}::text like ${tag}`);
+  // Confirmations answered in the UI get a random id, not the seed tag, so they must be
+  // removed by the event they point at — event_confirmations.event_id has no ON DELETE CASCADE.
+  await db.delete(eventConfirmations).where(
+    sql`${eventConfirmations.id}::text like ${tag} or ${eventConfirmations.eventId} in (select id from ${events} where id::text like ${tag})`
+  );
   await db.delete(events).where(sql`${events.id}::text like ${tag}`);
   await db.delete(applianceSignatures).where(sql`${applianceSignatures.id}::text like ${tag}`);
   await db.delete(calibrationSessions).where(sql`${calibrationSessions.id}::text like ${tag}`);
@@ -368,6 +372,8 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((err) => {
+    // drizzle's message is just the failed SQL; the reason (e.g. a foreign-key violation) is on the cause.
     console.error(err instanceof Error ? err.message : err);
+    if (err instanceof Error && err.cause) console.error(err.cause);
     process.exit(1);
   });
