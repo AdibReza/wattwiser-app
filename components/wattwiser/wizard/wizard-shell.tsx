@@ -1,14 +1,18 @@
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 
-export const WIZARD_STEPS = 5;
+export const WIZARD_STEPS = 3;
 
-/** "Step 2 of 5" + five segments. Text first, so the progress is never colour-only. */
+/**
+ * "Step 2 of 3" + three segments. Text first, so the progress is never colour-only.
+ * A step past the last one means the run is saved: every segment filled, "All done".
+ */
 export function WizardProgress({ step }: { step: number }) {
+  const done = step > WIZARD_STEPS;
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm font-medium text-muted-foreground">
-        Step {step} of {WIZARD_STEPS}
+        {done ? "All done" : `Step ${step} of ${WIZARD_STEPS}`}
       </p>
       <ol className="flex gap-1.5" aria-hidden>
         {Array.from({ length: WIZARD_STEPS }, (_, i) => i + 1).map((n) => (
@@ -16,7 +20,7 @@ export function WizardProgress({ step }: { step: number }) {
             key={n}
             className={cn(
               "h-1.5 flex-1 rounded-full",
-              n < step ? "bg-primary/40" : n === step ? "bg-primary" : "bg-muted"
+              done || n === step ? "bg-primary" : n < step ? "bg-primary/40" : "bg-muted"
             )}
           />
         ))}
@@ -42,6 +46,7 @@ export function WizardShell({
   step: number;
   title: string;
   help?: string;
+  /** A tip, not a warning — muted, so it doesn't read as something going wrong. */
   note?: string;
   cancel: React.ReactNode;
   children?: React.ReactNode;
@@ -59,7 +64,7 @@ export function WizardShell({
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
           {help ? <p className="text-muted-foreground">{help}</p> : null}
-          {note ? <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">{note}</p> : null}
+          {note ? <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{note}</p> : null}
         </div>
         {children}
         <div className="flex items-center justify-end gap-2 border-t pt-6">{footer}</div>

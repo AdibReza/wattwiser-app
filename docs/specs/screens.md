@@ -114,25 +114,26 @@ duration, and status.
 ## 5. Calibration wizard — `/calibration/[id]`
 
 From [`website-details.md` §5](../source/website-details.md#5-calibration) and [`refined-flow-and-tasks.md` §4–5](../source/refined-flow-and-tasks.md#4-guided-appliance-calibration).
-**This is the core of the MVP.** Five steps, one screen each.
+**This is the core of the MVP.** Three steps, one screen each, then a "saved" screen.
+User-facing name: **"Teach WattWiser your [appliance]"** — never "Calibrating".
+The time estimate shows before step 1 ("Takes a few minutes" / "Takes about an hour").
 
 | Step | Screen | What happens |
 |---|---|---|
-| 1 | "Make sure [appliance] is OFF" + `I'm Ready` | check the total power is stable before starting |
-| 2 | "Turn [appliance] on as you normally would" | record `started_at` and `baseline_w` |
-| 3 | "Recording…" + live power chart | — |
-| 4 | "Wait for it to finish, then switch it off" + `Done` | — |
-| 5 | "Complete" + "Run calibration again?" | record `ended_at` |
+| 1 | "Switch [appliance] off." + home's power now, explained as the starting point + `Next` | check the total power is stable; the button says why it is waiting |
+| 2 | "Switch [appliance] on now." + live chart + "extra since you switched it on" | on entering: record `started_at` and `baseline_w` |
+| 3 | "Switch [appliance] off." + "looks like it's off" + `Save` | record `ended_at` |
+| — | "Saved" + `Run again` / `I'm done` | — |
 
 ### Wizard copy changes by appliance class
 
 This is the part most easily missed.
 
-| Class | Step 2 copy | Step 4 copy | Extra |
+| Class | Step 2 copy | Step 3 copy | Extra |
 |---|---|---|---|
 | **Simple** | as above | as above | — |
-| **Multi-stage** | "Start a normal cycle now, the one you use most often." | "Leave it running to the end of the cycle, then press Done." | Warn that this may take 45–70 minutes. |
-| **Variable-load** | "Turn it on and set it as you normally would." | as above | Note on screen that this appliance type is harder to identify and may need more runs. |
+| **Multi-stage** | "Start a normal cycle now — the one you use most often." | "Make sure [appliance] has stopped." | "Takes about an hour"; note that a cycle takes 45–70 minutes. |
+| **Variable-load** | "Switch it on and set it as you normally would." | as above | Muted tip (not a warning) that a few extra runs help. |
 
 ### Hard requirements
 

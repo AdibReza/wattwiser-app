@@ -21,26 +21,27 @@ import { useLivePower } from "@/components/wattwiser/use-live-power";
 import { PowerChart } from "@/components/wattwiser/power-chart-lazy";
 import { WizardShell } from "@/components/wattwiser/wizard/wizard-shell";
 import { assessStability, type Stability } from "@/lib/calibration/stability";
-import { stepCopy } from "@/lib/calibration/copy";
+import { doneCopy, stepCopy, type WizardStep } from "@/lib/calibration/copy";
 import { formatDuration, formatWatts } from "@/lib/format";
 import type { Appliance } from "@/lib/validation/appliance";
 import type { CalibrationSession } from "@/lib/validation/calibration";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+/** Below this much above the starting point, the appliance counts as off. */
+const OFF_THRESHOLD_W = 50;
 
 /**
- * Five screens, one row in calibration_sessions per run — docs/specs/screens.md §5.
- *   step 1  contamination guard (no row yet)
- *   step 2  POST /api/calibration/start → the row (started_at, baseline_w)
- *   step 3  recording
- *   step 4  wait for it to finish
- *   step 5  POST /api/calibration/:id/finish → ended_at; run again or done
- * Cancel on steps 2–4 → POST /api/calibration/:id/discard.
+ * Three screens, one row in calibration_sessions per run — docs/specs/screens.md §5.
+ *   step 1  switch it off; contamination guard (no row yet)
+ *           Next → POST /api/calibration/start → the row (started_at, baseline_w)
+ *   step 2  switch it on; recording
+ *   step 3  switch it off; Save → POST /api/calibration/:id/finish → ended_at
+ *   done    run again or leave
+ * Cancel on steps 2–3 → POST /api/calibration/:id/discard.
  */
 export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
   const router = useRouter();
   const live = useLivePower();
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<WizardStep | "done">(1);
   const [session, setSession] = useState<CalibrationSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +53,18 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     return assessStability(live.points, new Date(latest.ts).getTime());
   }, [live.points]);
 
-  const copy = stepCopy(step, appliance.applianceClass, appliance.name);
+  const name = appliance.name;
   const goToAppliance = () => {
     router.push(`/appliances/${appliance.id}`);
     router.refresh();
   };
+
+  // Elapsed time comes from the newest reading's timestamp, not the wall clock, so rendering stays pure.
+  const latestMs = live.current ? new Date(live.current.ts).getTime() : null;
+  const elapsedS =
+    session && latestMs ? Math.max(0, Math.round((latestMs - new Date(session.startedAt).getTime()) / 1000)) : null;
+  const extraW =
+    live.current && session?.baselineW != null ? Math.max(0, live.current.watts - session.baselineW) : null;
 
   /** Step 1 → 2: this is the moment the row is created. Exactly one per run. */
   async function startRun() {
@@ -79,20 +87,20 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     }
   }
 
-  /** Cancel on steps 2–4: the row is marked discarded, then back to the appliance. */
+  /** Cancel on steps 2–3: the row is marked discarded, then back to the appliance. */
   async function discardRun() {
     if (!session) return goToAppliance();
     setBusy(true);
     try {
       await fetch(`/api/calibration/${session.id}/discard`, { method: "POST" });
-      toast("Calibration cancelled");
+      toast("Cancelled — nothing was saved");
     } finally {
       setBusy(false);
       goToAppliance();
     }
   }
 
-  /** Step 4 → 5: ended_at is written by the server, in UTC. */
+  /** Step 3 → done: ended_at is written by the server, in UTC. */
   async function finishRun() {
     if (!session) return;
     setBusy(true);
@@ -102,8 +110,8 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Couldn't save the run.");
       const done = (await res.json()) as { endedAt: string | null; status: CalibrationSession["status"]; durationS: number | null };
       setSession({ ...session, endedAt: done.endedAt, status: done.status, durationS: done.durationS });
-      setStep(5);
-      toast.success("Calibration saved");
+      setStep("done");
+      toast.success("Run saved");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the run. Please try again.");
     } finally {
@@ -111,7 +119,7 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     }
   }
 
-  /** "Run again": back to step 1 with no session — the next I'm ready creates a fresh row. */
+  /** "Run again": back to step 1 with no session — the next Next creates a fresh row. */
   function resetRun() {
     setSession(null);
     setError(null);
@@ -119,7 +127,7 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
   }
 
   const cancel =
-    session && step >= 2 && step <= 4 ? (
+    session && (step === 2 || step === 3) ? (
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="outline" size="sm" disabled={busy}>
@@ -128,20 +136,20 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Stop this calibration?</AlertDialogTitle>
-            <AlertDialogDescription>This run is discarded. Nothing already saved for {appliance.name} is affected.</AlertDialogDescription>
+            <AlertDialogTitle>Stop this run?</AlertDialogTitle>
+            <AlertDialogDescription>This run is thrown away. Runs you already saved for {name} are kept.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep going</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={discardRun}>
-              Stop and discard
+              Stop and throw away
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     ) : (
       <Button variant="outline" size="sm" onClick={goToAppliance} disabled={busy}>
-        Cancel
+        {step === "done" ? "Close" : "Cancel"}
       </Button>
     );
 
@@ -152,7 +160,38 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     </Alert>
   ) : null;
 
-  /* ---------- step 1 ---------- */
+  /* ---------- done ---------- */
+  if (step === "done") {
+    const copy = doneCopy(name);
+    return (
+      <WizardShell
+        step={4}
+        title={copy.title}
+        help={copy.help}
+        cancel={cancel}
+        footer={
+          <>
+            <Button variant="outline" onClick={goToAppliance}>
+              I&apos;m done
+            </Button>
+            <Button onClick={resetRun}>Run again</Button>
+          </>
+        }
+      >
+        <div className="flex items-center justify-between rounded-lg border bg-success-soft/60 p-4 text-sm">
+          <div>
+            <p className="font-medium">Run saved for {name}</p>
+            <p className="tabular text-muted-foreground">Recorded for {formatDuration(session?.durationS)}</p>
+          </div>
+          <StatusBadge status="complete" />
+        </div>
+      </WizardShell>
+    );
+  }
+
+  const copy = stepCopy(step, appliance.applianceClass, name);
+
+  /* ---------- step 1: switch it off ---------- */
   if (step === 1) {
     return (
       <WizardShell
@@ -162,18 +201,21 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
         note={copy.note}
         cancel={cancel}
         footer={
-          <Button disabled={stability.state !== "stable" || busy} onClick={startRun}>
-            {busy ? "Starting…" : copy.button}
+          <Button disabled={stability.state !== "stable" || live.failed || busy} onClick={startRun}>
+            {busy ? "Starting…" : startButtonLabel(stability, live.failed, copy.button)}
           </Button>
         }
       >
         <div className="rounded-lg border bg-muted/40 p-4">
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm font-medium text-muted-foreground">Total power right now</span>
+            <span className="text-sm font-medium text-muted-foreground">Your home is using right now</span>
             <span className="tabular text-2xl font-semibold text-power">{formatWatts(live.current?.watts)}</span>
           </div>
-          <p className="mt-2 text-sm" role="status" aria-live="polite">
-            <StabilityLine stability={stability} failed={live.failed} />
+          <p className="mt-1 text-sm text-muted-foreground">
+            This is your starting point. When you switch {name} on, whatever gets added on top is {name}.
+          </p>
+          <p className="mt-3 text-sm" role="status" aria-live="polite">
+            <StabilityLine stability={stability} failed={live.failed} name={name} />
           </p>
         </div>
         {errorBox}
@@ -181,7 +223,7 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
     );
   }
 
-  /* ---------- step 2 ---------- */
+  /* ---------- step 2: switch it on, recording ---------- */
   if (step === 2 && session) {
     return (
       <WizardShell
@@ -196,63 +238,30 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
           </Button>
         }
       >
-        <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-4 text-sm">
-          <div>
-            <p className="font-medium">Baseline captured</p>
-            <p className="text-muted-foreground">
-              Your home was drawing <span className="tabular font-medium text-foreground">{formatWatts(session.baselineW)}</span>{" "}
-              before switching on.
-            </p>
-          </div>
-          <StatusBadge status="recording" />
-        </div>
-        <p className="tabular text-sm text-muted-foreground">Live: {formatWatts(live.current?.watts)}</p>
-      </WizardShell>
-    );
-  }
-
-  /* ---------- step 3 ---------- */
-  if (step === 3 && session) {
-    // Elapsed time comes from the newest reading's timestamp, not the wall clock, so rendering stays pure.
-    const latestMs = live.current ? new Date(live.current.ts).getTime() : null;
-    const elapsedS = latestMs ? Math.max(0, Math.round((latestMs - new Date(session.startedAt).getTime()) / 1000)) : null;
-    return (
-      <WizardShell
-        step={3}
-        title={copy.title}
-        help={copy.help}
-        note={copy.note}
-        cancel={cancel}
-        footer={
-          <Button onClick={() => setStep(4)} disabled={busy}>
-            {copy.button}
-          </Button>
-        }
-      >
         <div className="flex items-center justify-between text-sm">
           <StatusBadge status="recording" />
           <span className="tabular text-muted-foreground" aria-live="polite">
             Recording for {formatDuration(elapsedS)}
           </span>
         </div>
-        <PowerChart points={live.points} current={live.current?.watts} title="Power while recording" height={180} className="shadow-none" />
+        <PowerChart points={live.points} current={live.current?.watts} title="Your home's power" height={180} className="shadow-none" />
         <p className="tabular text-sm text-muted-foreground">
-          Baseline before switching on: {formatWatts(session.baselineW)}
+          Added since you switched it on:{" "}
+          <span className="font-medium text-foreground">{extraW == null ? "—" : formatWatts(extraW)}</span> · starting
+          point {formatWatts(session.baselineW)}
         </p>
       </WizardShell>
     );
   }
 
-  /* ---------- step 4 ---------- */
-  if (step === 4 && session) {
-    const latestMs = live.current ? new Date(live.current.ts).getTime() : null;
-    const elapsedS = latestMs ? Math.max(0, Math.round((latestMs - new Date(session.startedAt).getTime()) / 1000)) : null;
-    const aboveBaseline = live.current && session.baselineW != null ? live.current.watts - session.baselineW : null;
+  /* ---------- step 3: switch it off, save ---------- */
+  if (step === 3 && session) {
+    const looksOff = extraW != null && extraW < OFF_THRESHOLD_W;
     return (
       <WizardShell
-        step={4}
+        step={3}
         title={copy.title}
-        help="Press Done only once it has switched off, so the recording ends where the appliance does."
+        help={copy.help}
         note={copy.note}
         cancel={cancel}
         footer={
@@ -262,82 +271,52 @@ export function CalibrationWizard({ appliance }: { appliance: Appliance }) {
         }
       >
         {errorBox}
-        <div className="flex items-center justify-between text-sm">
-          <StatusBadge status="recording" />
-          <span className="tabular text-muted-foreground" aria-live="polite">
-            Recording for {formatDuration(elapsedS)}
-          </span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border bg-muted/40 p-4">
-            <p className="text-sm font-medium text-muted-foreground">Total power now</p>
-            <p className="tabular mt-1 text-2xl font-semibold text-power">{formatWatts(live.current?.watts)}</p>
+        <div className="rounded-lg border bg-muted/40 p-4">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-sm font-medium text-muted-foreground">Still added on top of your starting point</span>
+            <span className="tabular text-2xl font-semibold">{extraW == null ? "—" : formatWatts(extraW)}</span>
           </div>
-          <div className="rounded-lg border bg-muted/40 p-4">
-            <p className="text-sm font-medium text-muted-foreground">Above the baseline</p>
-            <p className="tabular mt-1 text-2xl font-semibold">{aboveBaseline == null ? "—" : formatWatts(Math.max(0, aboveBaseline))}</p>
-            <p className="mt-1 text-xs text-muted-foreground" role="status" aria-live="polite">
-              {aboveBaseline != null && aboveBaseline < 50 ? "Looks like it's off now." : "Still drawing power."}
-            </p>
-          </div>
+          <p className="mt-2 text-sm" role="status" aria-live="polite">
+            {looksOff ? (
+              <span className="text-success">Looks like it&apos;s off now. Press Save.</span>
+            ) : (
+              <span className="text-muted-foreground">Still using power. Switch it off first.</span>
+            )}
+          </p>
         </div>
+        <p className="tabular text-sm text-muted-foreground">Recorded for {formatDuration(elapsedS)}</p>
       </WizardShell>
     );
   }
 
-  /* ---------- step 5 ---------- */
-  return (
-    <WizardShell
-      step={5}
-      title={copy.title}
-      help={copy.help}
-      cancel={
-        <Button variant="outline" size="sm" onClick={goToAppliance}>
-          Close
-        </Button>
-      }
-      footer={
-        <>
-          <Button variant="outline" onClick={goToAppliance}>
-            I&apos;m done
-          </Button>
-          <Button onClick={resetRun}>{copy.button}</Button>
-        </>
-      }
-    >
-      <div className="flex items-center justify-between rounded-lg border bg-success-soft/60 p-4 text-sm">
-        <div>
-          <p className="font-medium">Run saved for {appliance.name}</p>
-          <p className="tabular text-muted-foreground">
-            Recorded for {formatDuration(session?.durationS)} · baseline {formatWatts(session?.baselineW)}
-          </p>
-        </div>
-        <StatusBadge status="complete" />
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Each run teaches WattWiser a little more about what {appliance.name} looks like. You can come back and add runs any time.
-      </p>
-    </WizardShell>
-  );
+  return null;
 }
 
-function StabilityLine({ stability, failed }: { stability: Stability; failed: boolean }) {
+/** The disabled button says why it is waiting, so it never looks broken. */
+function startButtonLabel(stability: Stability, failed: boolean, ready: string): string {
+  if (failed) return "Waiting for the meter";
+  switch (stability.state) {
+    case "waiting":
+      return `Measuring… ${Math.max(1, Math.ceil(stability.need - stability.have))}s`;
+    case "unstable":
+      return "Waiting for power to settle";
+    case "stable":
+      return ready;
+  }
+}
+
+function StabilityLine({ stability, failed, name }: { stability: Stability; failed: boolean; name: string }) {
   if (failed) return <span className="text-danger">Can&apos;t reach the meter. Check the connection.</span>;
   switch (stability.state) {
     case "waiting":
-      return (
-        <span className="text-muted-foreground">
-          Checking that nothing else is switching on… {stability.have} of {stability.need} seconds.
-        </span>
-      );
+      return <span className="text-muted-foreground">Measuring for a few seconds. Don&apos;t switch anything on or off.</span>;
     case "unstable":
       return (
         <span className="text-warning">
-          Hold on — something else is running. Power is moving by {formatWatts(stability.swingW)}; it needs to settle within{" "}
-          {formatWatts(50)}.
+          Hold on — something else is running. Power is jumping by {formatWatts(stability.swingW)}. Wait until it settles.
         </span>
       );
     case "stable":
-      return <span className="text-success">Steady at about {formatWatts(stability.meanW)}. Good to go.</span>;
+      return <span className="text-success">Steady. Press Next when {name} is off.</span>;
   }
 }
