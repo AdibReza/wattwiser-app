@@ -6,13 +6,14 @@ It does not change any locked decision in [`../CLAUDE.md`](../CLAUDE.md).
 | | |
 |---|---|
 | Repo | `github.com/vlozg/watt-wiser-research` (local: `../watt-wiser-research`) |
-| Snapshot | commit `8f2de97`, 2026-09-25, 42 commits, one author |
+| Snapshot | `main` at `8f2de97` (2026-09-25), plus branch `wattwiser-autoresearch` at `67832b7` (2026-09-29) — see §8 |
 | Stack | Python research only (uv, marimo notebooks) — **not an app**, nothing to deploy |
 | Summarised | 2026-09-30 |
 
 ⚠️ **Trust level.** Most commits and documents in that repo are labelled *"AI work,
-not verified / not reviewed yet"*. All 14 hypotheses (H01–H14) are still in the
-**"AI drafted"** status, which means the project owner has not approved any of them.
+not verified / not reviewed yet"*. Of 15 hypotheses, only **H15** (the benchmark fix, §8)
+is owner-approved. The other 14 are still **"AI drafted"**, which means the project
+owner has not approved them.
 Numbers from its `deprecated/` folder are marked "quarantined" and are upper bounds,
 not evidence. Use this page to understand **direction**. Do not quote its numbers as fact.
 
@@ -160,7 +161,7 @@ Further points from the owner review:
 Items 5–6, and the live-rate measurement in §3, belong to the Python data side. They
 fit the existing contract with no schema change.
 
-## 7. Hypothesis index (all "AI drafted")
+## 7. Hypothesis index (H01–H14 "AI drafted")
 
 | ID | One line |
 |---|---|
@@ -178,3 +179,243 @@ fit the existing contract with no schema change.
 | H12 | How often calibration windows are really contaminated |
 | H13 | User marks identify the device; the mark corpus does not exist yet |
 | H14 | Multi-state models help washers and dishwashers at native cadence |
+| H15 | The first benchmark was broken; the fixed one passes a sanity check — **proved**, owner-approved (§8) |
+
+---
+
+## 8. Update — branch `wattwiser-autoresearch` (2026-09-29)
+
+The research author asked us to pull this branch. It adds 36 commits on top of
+`main`. It contains new experiments 02–06 and one head-to-head comparison of every
+method tried so far.
+
+### 8.1 The benchmark had to be fixed first (H15, proved)
+
+The first scoring setup was broken.
+
+- The recorded submeter data had many one-sample gaps. These chopped real appliance
+  cycles into fragments. For example, it counted about 28,000 fridge "episodes" where
+  there were really about 1,300 cycles.
+- Because of this, even a **perfect** predictor scored only 0.04 on the fridge.
+- The old setup also let the model see submeter data during calibration. A real home
+  will never have that data.
+
+The fixed benchmark counts whole appliance cycles. It uses only the whole-house
+signal during calibration. A built-in sanity check requires a perfect predictor to
+score at least 0.9 on every device, or the run is declared invalid.
+
+Lesson for us: **score whole cycles, never individual readings**. This matches
+§5.
+
+### 8.2 The three methods compared (`src/experiments/05_method_compare`)
+
+All three methods see only the whole-house signal. All are scored the same way:
+90 days after each home's split point, readings every 6 s, checked against that
+home's real per-appliance meters. The test uses 27 homes from UK-DALE, REFIT and
+ECO:
+
+- **20 development homes**, which were used for tuning.
+- **7 unseen homes**, which were never used for tuning. These give the fair
+  comparison.
+
+| Method | Plain meaning | What it learns from |
+|---|---|---|
+| **rules** | Hand-written rules: power step size, duration and time between cycles | 5 simulated button presses per appliance in that home |
+| **fhmm** | Statistical model: each appliance is a hidden on/off switch, and the total is their sum | The same 5 presses |
+| **seq2seq** | A small neural network that reads a window of the total and outputs one appliance's watts | Per-appliance meters from **other** homes; needs **no** presses in the new home |
+| zero | Always says 0 W | Nothing; the reference line |
+
+**Result on the 7 unseen homes.** F1 is the share of real cycles found without
+false alarms, where 1.0 is perfect.
+
+| Method | F1 (all devices) | Notes |
+|---|---|---|
+| rules | **0.306** | Best overall |
+| rules + true thresholds | 0.325 | Cheats slightly: uses a level from the submeter. A real home has no submeter |
+| seq2seq | 0.280 | Best on **kettle: 0.733** (rules 0.582). Worst on **microwave: 0.049** (rules 0.153) |
+| fhmm | 0.159 | Clearly last. It over-claims, as shown in the chart below |
+| Best method per device | 0.353 | Only +0.047 over rules alone |
+
+The rules line is now **closed**. After 106 tuning runs it stopped improving, at
+F1 0.366 on the development homes:
+
+| Device | F1 |
+|---|---|
+| kettle | 0.56 |
+| fridge | 0.39 |
+| dishwasher | 0.38 |
+| microwave | 0.27 |
+| washing machine | 0.25 |
+
+The seq2seq network is judged **undertrained and short-sighted**:
+
+- It is small (15k parameters) and was stopped while it was still learning.
+- It sees only about 26 minutes at a time, but a washer or dishwasher cycle runs
+  1–2 hours.
+
+The next experiment (06, transfer learning) fixes this in steps:
+
+1. See 2 hours at a time.
+2. Add synthetic mixed data.
+3. Train on more data, until it stops improving.
+4. Fine-tune on the home's own button presses.
+
+### 8.3 Reading the daily-energy chart (`02_compare_explore.py`)
+
+The notebook shows one home at a time. Each panel shows one appliance's
+**kWh per day** over 90 days:
+
+- grey bars = measured (the truth)
+- blue line = rules
+- red line = fhmm
+- green line = seq2seq
+
+What one example home shows:
+
+| Appliance | What happens |
+|---|---|
+| **Kettle** | seq2seq follows the bars closely. fhmm spikes to 3–4.5 kWh/day on days that used about 0.5 |
+| **Microwave** | True use is near 0. **fhmm claims 2–8 kWh/day every day**, which is pure over-claiming. rules and seq2seq stay near 0 |
+| **Fridge** | Truth is about 0.75 kWh/day. seq2seq reads a steady **~1.05** (too high). rules and fhmm read **~0.35** (about half) |
+| **Washing machine** | rules shoots up on many days with no wash. fhmm and seq2seq follow the real wash days better |
+| **Dishwasher** | fhmm claims 5–17 kWh/day against about 1.5 true. rules is closest |
+| Days ~48–52 and ~85–90 | The bars drop to 0 for every device, which is most likely a gap in the recorded data. seq2seq still predicts fridge use there |
+
+The takeaway: **no single method is right for every appliance.** Also, "found the
+cycle" (F1) and "got the kWh right" do not move together. The notebook has a
+scatter plot of F1 against daily energy error for exactly this reason.
+
+### 8.3b Reading the watt-by-watt view (same notebook, "Home explorer")
+
+This view zooms into a window of a few hours in one home:
+
+- The **top panel** shows the whole-house total (grey), the measured sum of the
+  target appliances (black dashed) and each method's combined claim.
+- There is **one panel per appliance** below it. The dotted line is the ON
+  threshold used for scoring.
+
+In the example window a dishwasher runs one cycle at about 2,200 W. Nothing else is
+really on, except the fridge for part of the window.
+
+| Appliance | Truth | rules (blue) | fhmm (red) | seq2seq (green) |
+|---|---|---|---|---|
+| Dishwasher | ~2,200 W block | Flat **~750 W** that starts well before the cycle | **0** — missed | **~2,100 W, tracks it well** |
+| Microwave | 0 | 0 | **~2,900 W for the whole cycle** | 0 |
+| Washing machine | 0 | 0 | 0 | **Bump up to ~1,000 W**, above the threshold |
+| Fridge | ~75 W during part of the window | 0 | ~55 W early, then 0 | Wanders 0–60 W, not in step with the truth |
+| Kettle | 0 | 0 | 0 | 0 |
+
+What it shows:
+
+1. **fhmm gives the right energy to the wrong appliance.** It saw a 2 kW block and
+   called it the microwave. This is the mechanism behind its microwave and
+   dishwasher over-claims in the daily chart.
+2. **seq2seq finds the shape but double-counts.** It runs one separate network per
+   appliance, and nothing forces the parts to add up to the meter. So the dishwasher
+   net and the washer net can both claim the same heater.
+   - A cheap guard for any method: **the appliances' combined claim must never
+     exceed the measured total.**
+   - Whatever is left over goes to Unknown.
+3. **rules gets the watts coarse.** It emits one fitted level per appliance, not the
+   measured watts, and its cycle edges can be far off.
+4. **Small loads are hard for every method.** No method gets the 75 W fridge right
+   while a 2 kW appliance is running.
+5. **The "measured" truth has holes.** The dense white stripes in the grey fill, and
+   the dashed line dropping to 0 again and again, are most likely the one-sample
+   gaps in the submeter data. This is the same defect H15 fixed for scoring. They are
+   a recording artifact, not the dishwasher switching on and off.
+
+How to open it: in the research repo, run
+`uv run marimo edit src/experiments/05_method_compare/02_compare_explore.py`.
+
+- It needs the results from `01_run_compare.py` first.
+- Those results live in `data/results/method_compare/`. That folder is not in git
+  and is **not on this machine yet**.
+- Producing them requires the six datasets to be downloaded and extracted.
+
+### 8.4 What this means for our web app
+
+- **Show confidence, never exact numbers.** At F1 of about 0.3, per-appliance kWh
+  is an estimate. The High / Medium / Low confidence and the always-visible
+  **Unknown** row on `/breakdown` are the right design, so keep them.
+- **Over-claiming is the worst failure for users.** fhmm's microwave invents kWh the
+  household never used, and that energy is taken from the Unknown row. A good
+  data-side output errs toward Unknown.
+- **The seq2seq result gives a hint for onboarding.** It does reasonably on the
+  kettle with **zero** calibration. A future version could show a first estimate
+  before the user calibrates anything. This is a roadmap idea only, because it is ML
+  and ML is cut from this MVP.
+- **Add a sum check wherever we show a breakdown.** The appliances' combined kWh
+  must be at most the measured total, with the rest shown as Unknown. The web side
+  can enforce this at display time even if the data side over-claims.
+- **Nothing changes in our contract.** Whichever method the data side ends up using,
+  it still writes to `events` and `appliance_signatures` exactly as defined in
+  [`specs/data-contract.md`](./specs/data-contract.md).
+
+
+### 8.5 The research author's reading and proposed next steps (2026-09-30), checked
+
+The research author summarised the findings in chat. Each claim was checked against
+the code (`05_method_compare/compare_lib.py`, `.auto/bench_v4.py`), the dossier
+(`.auto/dossier.md` §6) and `06_transfer_dl/backbone_capacity_review.md`.
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| seq2seq beats every method on **energy** | **True, narrowly** | Daily energy error: seq2seq 0.650, rules 0.723, fhmm 1.306 (all-zero = 1.0). Total energy error: 0.459 / 0.548 / 0.891. The dossier still says *"no method is product-ready on energy"*. On **cycle F1**, rules still leads (0.306 vs 0.280), and seq2seq's median across unseen pairs is only 0.15, so a few homes carry its mean |
+| seq2seq is **undertrained** | **True** | Stopped at a fixed 6 epochs with loss still falling 1–2% per epoch. No validation split, no early stopping |
+| Model is small (tens of k parameters) | **True** | 15,073 parameters |
+| The bigger limit is **how far it sees** | **Add this** | It sees 25.7 min at a time, against 1–2 h washer and dishwasher cycles. That is why those two collapse on unseen homes (0.33 → 0.13 and 0.34 → 0.19) while the kettle does not. Making it wider without seeing further will not fix them |
+| Training data is only 90 days | **Not quite** | 90 days is the **evaluation** span. Training reads each home's pre-split history: 180 days, or the full history. The real limit is sampling: only 1,500 ON-centred + 1,500 random windows per home. The 29-house pretraining pool is unused |
+| Trained on UK-DALE | **Not quite** | The 20 development homes are 15 REFIT, 4 ECO and 1 UK-DALE |
+| 5 devices = 5 separate models | **True** | One net per device in `stage_train`. This is also why nothing stops the parts adding up to more than the total |
+| Transfer learning is the most promising route, but unproven | **Agreed** | Experiment 06: M1 (zero-shot baseline) is measured. M2 (transfer matrix) and M3 (adapt on the 5 presses) have not been run. Only a smoke-run of `01_pretrain.py` exists |
+
+Proposed experiments, with notes from the evidence:
+
+1. **Shared backbone + one head per device, top priority.** A new appliance is then
+   handled one of two ways: fine-tune on its calibration samples, or embed a
+   calibration sample and predict from that embedding plus the whole-house signal.
+   - This is M3 in experiment 06. The embedding route is the one that matters for
+     the product, because users will enrol appliances outside the five trained
+     ones.
+   - The dossier records an earlier failure: full fine-tuning overfit, with about
+     11× damage at 40 epochs, and saturated heads. Its prescription is to freeze the
+     backbone, tune the head only, and recompute class weights on the calibration
+     data.
+   - A shared backbone also enables fix 2 in the over-attribution list below.
+2. **Bigger model, same data.** Worth doing, but widen **how far it sees** in the
+   same step: about 2 h, by adding more dilation levels or a U-Net path. The capacity
+   review ranks this first.
+3. **New architectures:** DAE, LSTM/BiLSTM, Seq2Point, SGN.
+   - **SGN** (Subtask Gated Network) pairs an on/off gate with a watts regressor. It
+     outputs 0 when the gate says off, which directly targets the false claims
+     seen in §8.3b.
+   - Run every architecture through the same 05 harness, with the same homes, seeds
+     and scorer.
+   - Published rankings are usually measured on **homes the model was trained on**.
+     Ours is **unseen homes**, so a paper's winner may not win here.
+4. **More training data**, from 180 to 365 days, after steps 1–2.
+   - Cheaper levers come first: use every ON window instead of 3,000 per home, add
+     the 29-house pretraining pool, and use **synthetic mixing**.
+   - Synthetic mixing means pasting one home's appliance traces onto another home's
+     total. It is the standard NILM augmentation and teaches overlap directly.
+
+**Over-attribution** means the per-appliance predictions add up to more than the
+whole-house total. Options, cheapest first:
+
+1. **Post-processing.** Each time step, if the sum of appliances exceeds the total
+   minus the always-on load, scale all appliances down in proportion. The rest goes
+   to Unknown. This is guaranteed to work, costs nothing and needs no training. Do
+   it now as the floor.
+2. **Build it into the model.** With a shared backbone, predict each appliance as a
+   **share of the total**, using a softmax over the five appliances plus an
+   "other" class. The shares then add to at most 100% by design, instead of being
+   patched afterwards.
+3. **A gate per device** (as in SGN). This cuts false "on" claims, which are the
+   main source of excess.
+4. **Measure it.** Add a metric such as *% of time the sum exceeds the total* and
+   *excess kWh*. Today's metrics score each appliance alone, so over-attribution
+   is invisible in `metrics.csv`.
+
+For the web app nothing changes. The display-time sum check in §8.4 is the same idea
+as option 1 and protects the breakdown screen whatever the data side ships.
