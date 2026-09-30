@@ -18,6 +18,7 @@ and working rules. This page tells you which document answers which question.
 | Generate live-looking power data, or seed the database | [`specs/mock-data.md`](./specs/mock-data.md) |
 | Hand the contract to the data side, or prove the link works | [`guides/data-side-handover.md`](./guides/data-side-handover.md) |
 | Check a decision against a known trap before committing to it | [`guides/known-pitfalls.md`](./guides/known-pitfalls.md) |
+| Know what the NILM research concluded — what is feasible, the Shelly sampling question, calibration advice | [`research-findings.md`](./research-findings.md) |
 
 ## Layout
 
@@ -31,6 +32,7 @@ docs/
   build-order.md                 ordered milestones with definitions of done
   design-system.md               tokens, layout shell, components, status vocabulary
   architecture.md                code layers, folder map, naming and data conventions
+  research-findings.md           summary of the separate watt-wiser-research repo
   specs/
     screens.md                   screen map and per-screen specification
     data-contract.md             database schema and write ownership
