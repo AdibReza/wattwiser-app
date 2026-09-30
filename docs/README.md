@@ -7,6 +7,9 @@ and working rules. This page tells you which document answers which question.
 
 | I need to… | Read |
 |---|---|
+| **Work on Phase 2 (current): the AI proof of concept** | [`phase-2/plan.md`](./phase-2/plan.md) — start here |
+| Train or evaluate the AI | [`phase-2/ml.md`](./phase-2/ml.md) |
+| The live Python service and mock meter (later, not in the POC) | [`phase-2/service.md`](./phase-2/service.md), [`phase-2/shelly.md`](./phase-2/shelly.md) |
 | Understand what this project is and how the two sides fit together | [`product-brief.md`](./product-brief.md) |
 | Know whether something is in scope, or why a technology was ruled out | [`scope-and-decisions.md`](./scope-and-decisions.md) |
 | Know what to build next, and what "done" means for it | [`build-order.md`](./build-order.md) |
@@ -33,6 +36,11 @@ docs/
   design-system.md               tokens, layout shell, components, status vocabulary
   architecture.md                code layers, folder map, naming and data conventions
   research-findings.md           summary of the separate watt-wiser-research repo
+  phase-2/                       CURRENT PHASE — AI proof of concept
+    plan.md                      goal, decisions, steps, current state (start here)
+    ml.md                        training and evaluating the AI
+    service.md                   live Python service (later)
+    shelly.md                    mock meter (later)
   specs/
     screens.md                   screen map and per-screen specification
     data-contract.md             database schema and write ownership

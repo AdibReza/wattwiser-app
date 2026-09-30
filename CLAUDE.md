@@ -6,6 +6,18 @@ appliances, so a household can see where the bill goes.
 
 **Read this file first. Then read `docs/README.md` to find the spec for your task.**
 
+> **Current phase: Phase 2 — AI proof of concept.** Phase 1 (the web app on mock
+> data) is done. For any AI, data or training work, read
+> **[`docs/phase-2/plan.md`](docs/phase-2/plan.md)** first: goal, decisions, steps,
+> current state.
+>
+> Phase 2 **overrides** the "all ML is cut" and "never propose ML" lines below.
+> Training code in `ml/` (Python, uv, runs on the Mac only, never deployed) is
+> now in scope.
+>
+> Still true: there is **no physical meter**, the web side stays Next.js, and
+> nothing is started without the owner asking.
+
 ---
 
 ## Architecture in one paragraph
