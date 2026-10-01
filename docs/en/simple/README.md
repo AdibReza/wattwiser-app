@@ -52,4 +52,3 @@ One file per screen.
 📁  OTHER VERSIONS
 
    • Full English guide with tables  →  ../use-cases/
-   • Bản tiếng Việt  →  ../../vi/use-cases/

@@ -50,7 +50,3 @@ per screen: what it does, when to use it, what to click.
 | **Bold** | A button or label **exactly as it appears on screen** |
 | ⚠️     | A trap — read carefully                               |
 | 💡       | A tip or an aside                                     |
-
----
-
-**Phiên bản tiếng Việt:** [../../vi/use-cases/](../../vi/use-cases/README.md)
