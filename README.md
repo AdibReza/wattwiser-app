@@ -52,6 +52,48 @@ otherwise.
 | **pnpm** — the package manager | `corepack enable` | `corepack enable` in PowerShell opened **as Administrator** |
 | **Supabase CLI** — starts the local database | `brew install supabase/tap/supabase` | [Scoop](https://scoop.sh), then `scoop bucket add supabase https://github.com/supabase/scoop-bucket.git` and `scoop install supabase` |
 
+#### Windows only: turn on virtualization and WSL 2 first
+
+Docker Desktop on Windows runs the database inside **WSL 2** (a small Linux
+built into Windows), which needs **hardware virtualization** switched on. Do
+this **before** installing Docker Desktop.
+
+1. **Check virtualization.** Press `Ctrl + Shift + Esc` → **Performance** tab →
+   **CPU**. Bottom right, **Virtualization** must say **Enabled**.
+2. **If it says Disabled**, turn it on in the BIOS/UEFI (the settings screen
+   before Windows starts): Settings → System → Recovery → **Advanced startup →
+   Restart now** → Troubleshoot → Advanced options → **UEFI Firmware Settings**
+   → Restart. Find the option — usually under *Advanced*, *CPU Configuration* or
+   *Security* — named **Intel Virtualization Technology (VT-x)**, **Intel VT-d**
+   or **SVM Mode** (AMD). Set it to **Enabled**, save (usually `F10`), restart.
+   Check step 1 again.
+3. **Install WSL 2.** Open PowerShell **as Administrator** (Start → type
+   *PowerShell* → right-click → *Run as administrator*) and run:
+
+   ```powershell
+   wsl --install
+   ```
+
+   Restart Windows when it finishes. If WSL was already installed, run
+   `wsl --update` instead.
+4. **Check it.** In a normal PowerShell:
+
+   ```powershell
+   wsl --status
+   ```
+
+   It should say **Default Version: 2**. If it says 1, run
+   `wsl --set-default-version 2`.
+5. **Install Docker Desktop**, keep **Use WSL 2 instead of Hyper-V** ticked,
+   restart when asked, then open Docker Desktop once and wait for **Engine
+   running** at the bottom left.
+
+| You see | Fix |
+|---|---|
+| `Virtualization support not detected` / `WSL 2 requires an update` | Step 2 (BIOS) was not saved, or run `wsl --update`. |
+| `wsl --install` prints only help text | WSL is already there: run `wsl --update`, then `wsl --set-default-version 2`. |
+| Docker Desktop stuck on *Engine starting* | Quit Docker Desktop, run `wsl --shutdown` in PowerShell, open Docker Desktop again. |
+
 `corepack enable` gives you the exact pnpm version pinned in `package.json`
 (10.26.2). Close and reopen the terminal afterwards, then check:
 
