@@ -19,6 +19,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  smallint,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -206,22 +207,58 @@ export const applianceSignatures = pgTable(
   (t) => [index("appliance_signatures_appliance_idx").on(t.applianceId)]
 );
 
+
 export const readings = pgTable(
   "readings",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
-    /** Owning household. Every read and write is filtered by this. */
-    householdId: uuid("household_id").references(() => household.id, { onDelete: "cascade" }),
+    householdId: uuid("household_id").references(
+      () => household.id,
+      { onDelete: "cascade" }
+    ),
     ts: utc("ts").notNull(),
     watts: numeric("watts").notNull(),
     volts: numeric("volts"),
     amps: numeric("amps"),
     powerFactor: numeric("power_factor"),
+    apparentPowerVa: numeric("apparent_power_va"),
+    frequencyHz: numeric("frequency_hz"),
+    cumulativeEnergyWh: numeric("cumulative_energy_wh"),
+    receivedAt: utc("received_at"),
+    deviceId: uuid("device_id").references(
+      () => devices.id,
+      { onDelete: "set null" }
+    ),
   },
-  // Every readings query is "this household, this time window" — the composite
-  // index is what keeps the table usable once more than one household exists.
-  (t) => [index("readings_household_ts_idx").on(t.householdId, t.ts)]
+  (t) => [
+    index("readings_household_ts_idx").on(t.householdId, t.ts),
+    index("readings_device_ts_idx").on(t.deviceId, t.ts),
+  ]
 );
+
+export const rawMqttMessages = pgTable(
+  "raw_mqtt_messages",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => household.id, { onDelete: "cascade" }),
+    topic: text("topic").notNull(),
+    receivedAt: utc("received_at").notNull().defaultNow(),
+    qos: smallint("qos"),
+    retained: boolean("retained").notNull().default(false),
+    payload: jsonb("payload"),
+    rawPayload: text("raw_payload").notNull(),
+  },
+  (t) => [
+    index("raw_mqtt_household_received_idx").on(
+      t.householdId,
+      t.receivedAt
+    ),
+    index("raw_mqtt_topic_received_idx").on(t.topic, t.receivedAt),
+  ]
+);
+
 
 export const events = pgTable(
   "events",

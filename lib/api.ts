@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { z } from "zod";
-import { householdForCurrentUser } from "@/lib/session";
+
 
 /** Shared helpers for route handlers — docs/architecture.md §3 "Data and time". */
 export function errorMessage(err: unknown, fallback = "Something went wrong.") {
@@ -36,13 +36,15 @@ export function unauthorized() {
  * its existing notFound() branch. 404, never 403 — 403 would confirm to a
  * stranger that the id exists.
  */
+
+const MVP_HOUSEHOLD_ID = "f39adff3-11dd-4263-b28a-6ad9e72326c3";
+
 export async function requireApiHousehold(): Promise<
   { householdId: string; response?: undefined } | { householdId?: undefined; response: NextResponse }
 > {
-  const householdId = await householdForCurrentUser();
-  if (!householdId) return { response: unauthorized() };
-  return { householdId };
+  return { householdId: MVP_HOUSEHOLD_ID };
 }
+
 
 /** Parse + validate a JSON body. Returns the data or a ready-made 400 response. */
 export async function parseBody<T extends z.ZodTypeAny>(

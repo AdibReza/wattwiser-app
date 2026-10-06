@@ -19,7 +19,7 @@ export function LiveTiles({ live }: { live: ReturnType<typeof useLivePower> }) {
       <StatCard
         label="Device status"
         value={<StatusBadge status={connected ? "connected" : "not-connected"} />}
-        hint={connected ? "Simulated meter" : undefined}
+        hint={connected ? "Shelly em Gen3" : undefined}
       />
     </>
   );
