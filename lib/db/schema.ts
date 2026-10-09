@@ -187,6 +187,84 @@ export const calibrationSessions = pgTable(
   ]
 );
 
+/* ----------------------------------------------------- calibration samples */
+
+/**
+ * One row represents one individual calibration run.
+ *
+ * This preserves each calibration sample separately so repeated runs can
+ * later be used as labelled ML training data without overwriting previous
+ * runs.
+ */
+export const calibrationSamples = pgTable(
+  "calibration_samples",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    /** Owning household. Every read and write is filtered by this. */
+    householdId: uuid("household_id").references(
+      () => household.id,
+      { onDelete: "cascade" }
+    ),
+
+    /** Calibration session that produced this sample. */
+    calibrationSessionId: uuid("calibration_session_id")
+      .references(() => calibrationSessions.id, {
+        onDelete: "cascade",
+      }),
+
+    /** Appliance being calibrated. */
+    applianceId: uuid("appliance_id").references(
+      () => appliances.id,
+      { onDelete: "cascade" }
+    ),
+
+    /** Whole-house power before the appliance event. */
+    baselineW: numeric("baseline_w"),
+
+    /** Estimated power increase when the appliance turns on. */
+    deltaOnW: numeric("delta_on_w"),
+
+    /** Estimated power decrease when the appliance turns off. */
+    deltaOffW: numeric("delta_off_w"),
+
+    /** Observed active duration in seconds. */
+    durationS: numeric("duration_s"),
+
+    /**
+     * Complete extracted feature set for this calibration run.
+     * Kept as JSON so features can evolve without losing old samples.
+     */
+    features: jsonb("features"),
+
+    /**
+     * Raw baseline electrical trace used for this calibration.
+     */
+    baselineTrace: jsonb("baseline_trace"),
+
+    /**
+     * Raw active electrical trace used for this calibration.
+     */
+    activeTrace: jsonb("active_trace"),
+
+    /**
+     * Raw electrical trace after the appliance turns off.
+     */
+    offTrace: jsonb("off_trace"),
+
+    createdAt: utc("created_at").defaultNow(),
+  },
+  (t) => [
+    index("calibration_samples_household_idx").on(t.householdId),
+    index("calibration_samples_session_idx").on(
+      t.calibrationSessionId
+    ),
+    index("calibration_samples_appliance_idx").on(
+      t.applianceId
+    ),
+  ]
+);
+
 export const applianceSignatures = pgTable(
   "appliance_signatures",
   {
@@ -258,7 +336,6 @@ export const rawMqttMessages = pgTable(
     index("raw_mqtt_topic_received_idx").on(t.topic, t.receivedAt),
   ]
 );
-
 
 export const events = pgTable(
   "events",
